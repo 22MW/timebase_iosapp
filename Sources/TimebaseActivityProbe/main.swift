@@ -26,6 +26,6 @@ repeat {
     }
 
     if !once {
-        Thread.sleep(forTimeInterval: 1)
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 1))
     }
 } while !once
