@@ -49,7 +49,7 @@ struct ActivityDetailView: View {
     @State private var activityKind = ActivityKind.all
     @State private var activityStatus = ActivityStatus.all
     @State private var sortMode = SortMode.time
-    @State private var assignmentStatus = AssignmentStatus.unassigned
+    @State private var assignmentStatus = AssignmentStatus.all
     @State private var searchText = ""
     @State private var hidesShortActivities = true
     @State private var isLiveExpanded = false
