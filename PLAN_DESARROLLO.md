@@ -46,6 +46,8 @@ La aplicación será complementaria: no modificará el contenedor, la base de da
 - Impedir que un segmento ya enviado vuelva a seleccionarse o contabilizarse en otro proyecto.
 - Permitir excluir aplicaciones mediante una lista negra persistente; sus segmentos se conservan localmente, pero no aparecen como tiempo asignable.
 - Incluir un resumen por periodo con tiempo asignado, pendiente y excluido, además del desglose por aplicación o sitio.
+- Añadir una vista Calendario diaria por horas, con eje temporal, bloques colocados según su inicio y duración, navegación entre días y control de zoom.
+- Permitir distinguir en la vista horaria actividades asignadas, pendientes, inactivas y excluidas mediante colores o capas.
 - Permitir desactivar la agrupación por dominio globalmente o para dominios concretos.
 - Guardar localmente título, dominio y URL completa para permitir clasificación precisa y agrupación por dominio.
 - Permitir ocultar la ruta y conservar solo el dominio mediante una preferencia de privacidad.
