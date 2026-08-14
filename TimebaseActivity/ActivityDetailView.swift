@@ -23,7 +23,10 @@ struct ActivityDetailView: View {
     ]
 
     @EnvironmentObject private var monitor: ActivityMonitor
+    @StateObject private var projectLoader = ProjectLoader()
     @State private var selectedSegmentIDs: Set<UUID> = []
+    @State private var selectedProject: TimebaseProject?
+    @State private var showsProjectPicker = false
     @State private var period = "Hoy"
     @State private var rangeStart = Calendar.current.startOfDay(for: Date())
     @State private var rangeEnd = Calendar.current.startOfDay(for: Date())
@@ -56,6 +59,11 @@ struct ActivityDetailView: View {
             }
         }
         .frame(minWidth: 720, minHeight: 560)
+        .sheet(isPresented: $showsProjectPicker) {
+            ProjectPickerView(loader: projectLoader) { project in
+                selectedProject = project
+            }
+        }
     }
 
     private var header: some View {
@@ -245,12 +253,18 @@ struct ActivityDetailView: View {
                 Text("Selección preparada").font(.headline)
                 Text("\(selectedSegments.count) segmentos · \(preparedSessionCount) sesiones · huecos no incluidos")
                     .font(.caption).foregroundStyle(.secondary)
+                if let selectedProject {
+                    Text("\(selectedProject.clientName) · \(selectedProject.name)")
+                        .font(.caption).foregroundStyle(.blue)
+                }
             }
             Spacer()
             Text(durationText(selectedDuration)).font(.title3.monospacedDigit().bold())
             Button("Limpiar") { selectedSegmentIDs.removeAll() }
-            Button("Elegir proyecto") { }.buttonStyle(.borderedProminent).disabled(true)
-                .help("Disponible en el siguiente paso")
+            Button(selectedProject == nil ? "Elegir proyecto" : "Cambiar proyecto") {
+                showsProjectPicker = true
+            }
+            .buttonStyle(.borderedProminent)
         }
         .padding()
         .background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
