@@ -69,6 +69,7 @@ struct ActivityDetailView: View {
         .sheet(isPresented: $showsEntryReview) {
             if let selectedProject {
                 EntryReviewView(
+                    activityStore: monitor.activityStore,
                     project: selectedProject,
                     sessions: preparedSessions
                 )

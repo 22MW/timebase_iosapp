@@ -8,10 +8,17 @@ struct EntryReviewView: View {
     }
 
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject var activityStore: ActivityStore
     let project: TimebaseProject
     @State private var drafts: [SessionDraft]
+    @State private var showsSendConfirmation = false
+    @State private var isSending = false
+    @State private var sentSessionIDs: Set<UUID> = []
+    @State private var sendError: String?
+    @State private var didFinishSending = false
 
-    init(project: TimebaseProject, sessions: [PreparedSession]) {
+    init(activityStore: ActivityStore, project: TimebaseProject, sessions: [PreparedSession]) {
+        self.activityStore = activityStore
         self.project = project
         _drafts = State(initialValue: sessions.map { session in
             SessionDraft(
@@ -53,6 +60,9 @@ struct EntryReviewView: View {
                                     Text(durationText(session.duration))
                                         .monospacedDigit().fontWeight(.semibold)
                                         .frame(width: 72, alignment: .trailing)
+                                    if sentSessionIDs.contains(session.id) {
+                                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                    }
                                 }
 
                                 Text("Descripción").font(.caption).foregroundStyle(.secondary)
@@ -70,24 +80,68 @@ struct EntryReviewView: View {
             Text("Cada sesión tendrá su propia descripción. Los títulos y URLs detallados permanecen en este Mac.")
                 .font(.caption).foregroundStyle(.secondary)
 
+            if let sendError {
+                Label(sendError, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+            } else if didFinishSending {
+                Label("Entradas creadas correctamente en Timebase.", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            }
+
             HStack {
-                Label("Modo de revisión: no se enviará nada", systemImage: "lock.shield")
+                Label(isSending ? "Enviando…" : "Se requiere confirmación final", systemImage: "lock.shield")
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text(durationText(drafts.reduce(0) { $0 + $1.session.duration }))
                     .font(.title3.monospacedDigit().bold())
-                Button("Enviar a Timebase") { }
+                Button(didFinishSending ? "Enviado" : "Enviar a Timebase") {
+                    showsSendConfirmation = true
+                }
                     .buttonStyle(.borderedProminent)
-                    .disabled(true)
-                    .help("Se activará después de validar esta pantalla")
+                    .disabled(isSending || didFinishSending || remainingDrafts.isEmpty)
             }
         }
         .padding(24)
         .frame(minWidth: 650, minHeight: 540)
+        .alert("¿Crear entradas en Timebase?", isPresented: $showsSendConfirmation) {
+            Button("Cancelar", role: .cancel) { }
+            Button("Crear \(remainingDrafts.count) entradas") {
+                Task { await sendEntries() }
+            }
+        } message: {
+            Text("Se crearán registros reales en \(project.clientName) · \(project.name). Esta acción no se puede deshacer desde la aplicación.")
+        }
     }
 
     private func durationText(_ duration: TimeInterval) -> String {
         let minutes = Int(duration / 60)
         return minutes >= 60 ? "\(minutes / 60) h \(minutes % 60) min" : "\(minutes) min"
+    }
+
+    private var remainingDrafts: [SessionDraft] {
+        drafts.filter { !sentSessionIDs.contains($0.id) }
+    }
+
+    @MainActor
+    private func sendEntries() async {
+        isSending = true
+        sendError = nil
+        for draft in remainingDrafts {
+            do {
+                let entry = try await TimebaseAPIClient().createTimeEntry(
+                    projectID: project.id,
+                    session: draft.session,
+                    description: draft.description
+                )
+                sentSessionIDs.insert(draft.id)
+                activityStore.recordExport(entryID: entry.id, project: project, session: draft.session)
+            } catch {
+                sendError = "Se enviaron \(sentSessionIDs.count) de \(drafts.count). \(error.localizedDescription)"
+                isSending = false
+                return
+            }
+        }
+        didFinishSending = true
+        isSending = false
     }
 }

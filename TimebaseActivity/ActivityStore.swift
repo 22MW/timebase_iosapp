@@ -62,12 +62,23 @@ struct ActivityGroup: Identifiable {
     }
 }
 
+struct TimebaseExportRecord: Codable, Identifiable {
+    let id: UUID
+    let timebaseEntryID: String
+    let projectID: String
+    let projectName: String
+    let segmentIDs: [UUID]
+    let exportedAt: Date
+}
+
 @MainActor
 final class ActivityStore: ObservableObject {
     @Published private(set) var segments: [ActivitySegment] = []
+    @Published private(set) var exports: [TimebaseExportRecord] = []
     @Published private(set) var storageError: String?
 
     private let fileURL: URL
+    private let exportsFileURL: URL
     private var forceNewSegment = false
 
     var groupedActivities: [ActivityGroup] {
@@ -98,6 +109,7 @@ final class ActivityStore: ObservableObject {
             directoryHint: .isDirectory
         )
         fileURL = directory.appending(component: "activities.json")
+        exportsFileURL = directory.appending(component: "exports.json")
 
         do {
             try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -106,6 +118,12 @@ final class ActivityStore: ObservableObject {
                 let decoder = JSONDecoder()
                 decoder.dateDecodingStrategy = .iso8601
                 segments = try decoder.decode([ActivitySegment].self, from: data)
+            }
+            if fileManager.fileExists(atPath: exportsFileURL.path) {
+                let data = try Data(contentsOf: exportsFileURL)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                exports = try decoder.decode([TimebaseExportRecord].self, from: data)
             }
         } catch {
             storageError = "No se pudo leer el historial local: \(error.localizedDescription)"
@@ -133,6 +151,22 @@ final class ActivityStore: ObservableObject {
         forceNewSegment = true
     }
 
+    func recordExport(
+        entryID: String,
+        project: TimebaseProject,
+        session: PreparedSession
+    ) {
+        exports.append(TimebaseExportRecord(
+            id: UUID(),
+            timebaseEntryID: entryID,
+            projectID: project.id,
+            projectName: project.name,
+            segmentIDs: session.segments.map(\.id),
+            exportedAt: Date()
+        ))
+        saveExports()
+    }
+
     func finishCurrentSegment(at date: Date = Date()) {
         guard let index = segments.indices.last else { return }
         segments[index].endedAt = max(segments[index].endedAt, date)
@@ -148,6 +182,19 @@ final class ActivityStore: ObservableObject {
             storageError = nil
         } catch {
             storageError = "No se pudo guardar el historial local: \(error.localizedDescription)"
+        }
+    }
+
+
+    private func saveExports() {
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            try encoder.encode(exports).write(to: exportsFileURL, options: .atomic)
+            storageError = nil
+        } catch {
+            storageError = "No se pudo guardar el registro de envíos: \(error.localizedDescription)"
         }
     }
 }

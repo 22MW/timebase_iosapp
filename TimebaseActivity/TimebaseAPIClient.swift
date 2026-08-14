@@ -8,6 +8,14 @@ struct TimebaseProject: Identifiable, Equatable {
     let clientName: String
 }
 
+struct CreatedTimeEntry: Decodable {
+    let id: String
+}
+
+private struct TimeEntryResponse: Decodable {
+    let entry: CreatedTimeEntry
+}
+
 private struct ProjectsResponse: Decodable {
     struct Client: Decodable {
         struct Project: Decodable {
@@ -76,6 +84,44 @@ struct TimebaseAPIClient {
         }
     }
 
+    func createTimeEntry(
+        projectID: String,
+        session: PreparedSession,
+        description: String
+    ) async throws -> CreatedTimeEntry {
+        guard let url = URL(string: "\(baseURL)/api/raycast/time-entries") else {
+            throw TimebaseAPIError.invalidURL
+        }
+        struct Body: Encodable {
+            let projectId: String
+            let startTime: Date
+            let endTime: Date
+            let description: String
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(try token())", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        request.httpBody = try encoder.encode(Body(
+            projectId: projectID,
+            startTime: session.startedAt,
+            endTime: session.calculatedEnd,
+            description: description
+        ))
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw TimebaseAPIError.invalidResponse
+        }
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            let message = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
+            throw TimebaseAPIError.server(httpResponse.statusCode, message)
+        }
+        return try JSONDecoder().decode(TimeEntryResponse.self, from: data).entry
+    }
+
     private func token() throws -> String {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
@@ -114,4 +160,3 @@ final class ProjectLoader: ObservableObject {
         isLoading = false
     }
 }
-
