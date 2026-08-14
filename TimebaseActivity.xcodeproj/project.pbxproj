@@ -17,6 +17,8 @@
 		A10000000000000000000008 /* ActivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* ActivityStore.swift */; };
 		A10000000000000000000009 /* TimebaseAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* TimebaseAPIClient.swift */; };
 		A1000000000000000000000A /* ProjectPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* ProjectPickerView.swift */; };
+		A1000000000000000000000B /* PreparedEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* PreparedEntry.swift */; };
+		A1000000000000000000000C /* EntryReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* EntryReviewView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +34,8 @@
 		A2000000000000000000000A /* ActivityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityStore.swift; sourceTree = "<group>"; };
 		A2000000000000000000000B /* TimebaseAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimebaseAPIClient.swift; sourceTree = "<group>"; };
 		A2000000000000000000000C /* ProjectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPickerView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000D /* PreparedEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedEntry.swift; sourceTree = "<group>"; };
+		A2000000000000000000000E /* EntryReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryReviewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +68,8 @@
 				A2000000000000000000000A /* ActivityStore.swift */,
 				A2000000000000000000000B /* TimebaseAPIClient.swift */,
 				A2000000000000000000000C /* ProjectPickerView.swift */,
+				A2000000000000000000000D /* PreparedEntry.swift */,
+				A2000000000000000000000E /* EntryReviewView.swift */,
 				A20000000000000000000008 /* Info.plist */,
 			);
 			path = TimebaseActivity;
@@ -165,6 +171,8 @@
 				A10000000000000000000008 /* ActivityStore.swift in Sources */,
 				A10000000000000000000009 /* TimebaseAPIClient.swift in Sources */,
 				A1000000000000000000000A /* ProjectPickerView.swift in Sources */,
+				A1000000000000000000000B /* PreparedEntry.swift in Sources */,
+				A1000000000000000000000C /* EntryReviewView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

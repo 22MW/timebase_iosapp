@@ -27,6 +27,7 @@ struct ActivityDetailView: View {
     @State private var selectedSegmentIDs: Set<UUID> = []
     @State private var selectedProject: TimebaseProject?
     @State private var showsProjectPicker = false
+    @State private var showsEntryReview = false
     @State private var period = "Hoy"
     @State private var rangeStart = Calendar.current.startOfDay(for: Date())
     @State private var rangeEnd = Calendar.current.startOfDay(for: Date())
@@ -62,6 +63,15 @@ struct ActivityDetailView: View {
         .sheet(isPresented: $showsProjectPicker) {
             ProjectPickerView(loader: projectLoader) { project in
                 selectedProject = project
+            }
+        }
+        .sheet(isPresented: $showsEntryReview) {
+            if let selectedProject {
+                EntryReviewView(
+                    project: selectedProject,
+                    sessions: preparedSessions,
+                    suggestedDescription: PreparedEntryBuilder.suggestedDescription(from: selectedSegments)
+                )
             }
         }
     }
@@ -265,6 +275,12 @@ struct ActivityDetailView: View {
                 showsProjectPicker = true
             }
             .buttonStyle(.borderedProminent)
+            if selectedProject != nil {
+                Button("Revisar entradas") {
+                    showsEntryReview = true
+                }
+                .buttonStyle(.borderedProminent)
+            }
         }
         .padding()
         .background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
@@ -329,15 +345,11 @@ struct ActivityDetailView: View {
             .sorted { $0.startedAt < $1.startedAt }
     }
     private var selectedDuration: TimeInterval { selectedSegments.reduce(0) { $0 + $1.duration } }
+    private var preparedSessions: [PreparedSession] {
+        PreparedEntryBuilder.sessions(from: selectedSegments)
+    }
     private var preparedSessionCount: Int {
-        guard let first = selectedSegments.first else { return 0 }
-        var count = 1
-        var previousEnd = first.endedAt
-        for segment in selectedSegments.dropFirst() {
-            if segment.startedAt.timeIntervalSince(previousEnd) > 30 * 60 { count += 1 }
-            previousEnd = max(previousEnd, segment.endedAt)
-        }
-        return count
+        preparedSessions.count
     }
 
     private func selectionButton(for ids: [UUID]) -> some View {
