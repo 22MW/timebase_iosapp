@@ -10,6 +10,8 @@ struct BrowserTab: Equatable {
 }
 
 struct ActivitySnapshot: Equatable {
+    static let idleThreshold: TimeInterval = 5 * 60
+
     let capturedAt: Date
     let applicationName: String
     let bundleIdentifier: String?
@@ -17,11 +19,15 @@ struct ActivitySnapshot: Equatable {
     let browserTab: BrowserTab?
     let idleSeconds: TimeInterval
 
+    var isIdle: Bool {
+        idleSeconds >= Self.idleThreshold
+    }
+
     static func == (lhs: ActivitySnapshot, rhs: ActivitySnapshot) -> Bool {
         lhs.applicationName == rhs.applicationName
             && lhs.bundleIdentifier == rhs.bundleIdentifier
             && lhs.windowTitle == rhs.windowTitle
             && lhs.browserTab == rhs.browserTab
-            && Int(lhs.idleSeconds) == Int(rhs.idleSeconds)
+            && lhs.isIdle == rhs.isIdle
     }
 }

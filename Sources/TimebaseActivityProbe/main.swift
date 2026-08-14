@@ -20,7 +20,8 @@ repeat {
             print("URL: \(tab.url?.absoluteString ?? "—")")
         }
 
-        print("Inactividad: \(Int(snapshot.idleSeconds)) s\n")
+        let idleState = snapshot.isIdle ? "inactivo" : "activo"
+        print("Estado: \(idleState) · \(Int(snapshot.idleSeconds)) s sin interacción\n")
         previous = snapshot
     }
 
