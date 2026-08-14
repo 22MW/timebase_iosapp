@@ -49,7 +49,7 @@ struct ActivityGroup: Identifiable {
     var title: String { domain ?? applicationName }
     var startedAt: Date { segments.first?.startedAt ?? .distantPast }
     var endedAt: Date { segments.last?.endedAt ?? startedAt }
-    var duration: TimeInterval { max(0, endedAt.timeIntervalSince(startedAt)) }
+    var duration: TimeInterval { segments.reduce(0) { $0 + $1.duration } }
 
     fileprivate func canInclude(_ segment: ActivitySegment) -> Bool {
         guard isIdle == segment.isIdle else { return false }
@@ -68,9 +68,12 @@ final class ActivityStore: ObservableObject {
     @Published private(set) var storageError: String?
 
     private let fileURL: URL
+    private var forceNewSegment = false
 
     var groupedActivities: [ActivityGroup] {
-        segments.reduce(into: []) { groups, segment in
+        segments
+            .filter { $0.bundleIdentifier != "online.22mw.timebase.activity" }
+            .reduce(into: []) { groups, segment in
             if let index = groups.indices.last, groups[index].canInclude(segment) {
                 groups[index].segments.append(segment)
             } else {
@@ -104,7 +107,8 @@ final class ActivityStore: ObservableObject {
     }
 
     func record(_ snapshot: ActivitySnapshot) {
-        if let index = segments.indices.last,
+        if !forceNewSegment,
+           let index = segments.indices.last,
            segments[index].belongsToSameActivity(as: snapshot) {
             segments[index].endedAt = snapshot.capturedAt
         } else {
@@ -113,7 +117,14 @@ final class ActivityStore: ObservableObject {
             }
             segments.append(ActivitySegment(snapshot: snapshot))
         }
+        forceNewSegment = false
         save()
+    }
+
+    func interruptCurrentSegment(at date: Date = Date()) {
+        guard !forceNewSegment else { return }
+        finishCurrentSegment(at: date)
+        forceNewSegment = true
     }
 
     func finishCurrentSegment(at date: Date = Date()) {

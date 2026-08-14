@@ -10,6 +10,7 @@ final class ActivityMonitor: ObservableObject {
 
     private let reader = FrontmostActivityReader()
     private var monitoringTask: Task<Void, Never>?
+    private let ownBundleIdentifier = "online.22mw.timebase.activity"
 
     init() {
         requestAccessibilityIfNeeded()
@@ -52,6 +53,10 @@ final class ActivityMonitor: ObservableObject {
         }
         guard let latestSnapshot = reader.capture() else { return }
         snapshot = latestSnapshot
+        guard latestSnapshot.bundleIdentifier != ownBundleIdentifier else {
+            activityStore.interruptCurrentSegment(at: latestSnapshot.capturedAt)
+            return
+        }
         activityStore.record(latestSnapshot)
     }
 }

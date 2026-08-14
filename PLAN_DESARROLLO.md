@@ -38,6 +38,8 @@ La aplicación será complementaria: no modificará el contenedor, la base de da
 - No registrar todas las pestañas abiertas: solo la visible en ese momento.
 - Agrupar de forma predeterminada pestañas consecutivas del mismo dominio en una sola actividad visible, aunque cambien el título o la URL.
 - Conservar internamente cada segmento y cambio de pestaña para poder separar posteriormente la actividad agrupada.
+- Al asignar varios bloques a un proyecto, sumar únicamente su tiempo real y crear una sola entrada de Timebase con una descripción general editable.
+- Mantener localmente pestañas, títulos y URLs; enviar a Timebase solamente el proyecto, el tiempo total y la descripción confirmada.
 - Permitir desactivar la agrupación por dominio globalmente o para dominios concretos.
 - Guardar localmente título, dominio y URL completa para permitir clasificación precisa y agrupación por dominio.
 - Permitir ocultar la ruta y conservar solo el dominio mediante una preferencia de privacidad.
