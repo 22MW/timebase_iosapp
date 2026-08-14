@@ -6,11 +6,10 @@ Fecha: 14 de agosto de 2026.
 
 - MacBook Pro con Apple M4 (`arm64`).
 - macOS Tahoe 26.5.2, build 25F84.
-- Solo están instaladas las Command Line Tools.
-- Swift disponible: 5.3.2.
-- Xcode completo no está instalado o no está seleccionado.
+- Xcode 26.6 instalado, con licencia aceptada y configuración inicial completada.
+- Swift disponible: 6.3.3.
 
-Conclusión: la inspección puede continuar, pero para crear, firmar y ejecutar la aplicación SwiftUI será necesario instalar Xcode completo.
+Conclusión: el entorno está preparado para crear y compilar el prototipo nativo.
 
 ## Navegadores instalados
 
@@ -89,13 +88,15 @@ El MVP utilizará inicialmente la creación de registros cerrados. Los temporiza
 4. La API pertenece a la imagen oficial y podría evolucionar.
    - Mitigación: cliente aislado, validación de respuestas y errores claros sin acceso directo a PostgreSQL.
 
-## Validaciones pendientes
+## Validaciones completadas
 
-- Instalar Xcode completo y seleccionar su toolchain.
 - Brave: prueba controlada completada correctamente con `http://example.com/` y varias ventanas abiertas.
 - Comet: prueba controlada completada correctamente con `http://example.com/`.
 - Safari: prueba controlada completada correctamente con `http://example.com/`.
 - Arc: prueba controlada completada correctamente con `http://example.com/` usando términos Chromium.
-- Crear un token de Timebase con permisos de lectura y escritura.
-- Consultar proyectos reales mediante API.
+- Token `Timebase macOS` creado con permisos de lectura y escritura y almacenado en el Llavero de macOS.
+- Lectura autenticada de proyectos validada contra producción con respuesta HTTP 200, sin mostrar el token ni descargar datos en la prueba.
+
+## Validación pendiente
+
 - Crear y eliminar o revisar un único registro de prueba controlado.
