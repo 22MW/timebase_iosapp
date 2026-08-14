@@ -69,8 +69,7 @@ struct ActivityDetailView: View {
             if let selectedProject {
                 EntryReviewView(
                     project: selectedProject,
-                    sessions: preparedSessions,
-                    suggestedDescription: PreparedEntryBuilder.suggestedDescription(from: selectedSegments)
+                    sessions: preparedSessions
                 )
             }
         }
