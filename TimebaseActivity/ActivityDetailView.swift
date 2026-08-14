@@ -182,10 +182,12 @@ struct ActivityDetailView: View {
             HStack {
                 Toggle("Ocultar menos de 10 segundos", isOn: $hidesShortActivities)
                     .toggleStyle(.checkbox)
-                Picker("Asignación", selection: $assignmentStatus) {
-                    ForEach(AssignmentStatus.allCases) { Text($0.rawValue).tag($0) }
+                if viewMode == .timeline {
+                    Picker("Asignación", selection: $assignmentStatus) {
+                        ForEach(AssignmentStatus.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .frame(width: 145)
                 }
-                .frame(width: 145)
                 Spacer()
                 Text("Ordenar por").foregroundStyle(.secondary)
                 Picker("Orden", selection: $sortMode) {
@@ -201,6 +203,8 @@ struct ActivityDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             if viewMode == .summary {
                 summaryView
+            } else if viewMode == .selection {
+                selectionActivityList
             } else if let error = monitor.activityStore.storageError {
                 Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             } else if visibleGroups.isEmpty {
@@ -218,6 +222,32 @@ struct ActivityDetailView: View {
         }
         .padding()
         .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var selectionActivityList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Pendientes seleccionadas").font(.headline)
+            if selectedPendingGroups.isEmpty {
+                Text("No hay actividades pendientes seleccionadas.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(selectedPendingGroups) { group in
+                    activityGroup(group)
+                    Divider()
+                }
+            }
+
+            Text("Ya asignadas").font(.headline).padding(.top, 8)
+            if assignedReferenceGroups.isEmpty {
+                Text("No hay actividades asignadas en este periodo.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(assignedReferenceGroups) { group in
+                    activityGroup(group)
+                    Divider()
+                }
+            }
+        }
     }
 
     private var summaryView: some View {
@@ -319,9 +349,12 @@ struct ActivityDetailView: View {
                     }
                 }
                 Spacer()
-                if group.segments.allSatisfy({ monitor.activityStore.assignedSegmentIDs.contains($0.id) }) {
+                if isAssigned(group) {
                     Label("Asignado", systemImage: "circle.fill")
                         .font(.caption).foregroundStyle(.white)
+                } else if viewMode == .grouped {
+                    Label("Pendiente", systemImage: "circle")
+                        .font(.caption).foregroundStyle(.orange)
                 }
                 Text(group.startedAt, style: .time).monospacedDigit().foregroundStyle(.tertiary)
                 Text(durationText(group.duration)).monospacedDigit().foregroundStyle(.secondary)
@@ -381,9 +414,11 @@ struct ActivityDetailView: View {
     private var visibleGroups: [ActivityGroup] {
         var groups = dateGroups.filter(matchesFilters)
         if viewMode == .grouped {
-            groups = aggregate(groups)
+            groups = aggregate(splitByAssignment(groups))
         } else if viewMode == .selection {
-            groups = groups.filter { group in group.segments.contains { selectedSegmentIDs.contains($0.id) } }
+            groups = selectedPendingGroups + assignedReferenceGroups
+        } else if viewMode == .timeline {
+            groups = splitByAssignment(groups).filter(matchesAssignmentFilter)
         }
         switch sortMode {
         case .time: return groups.sorted { $0.startedAt > $1.startedAt }
@@ -398,11 +433,6 @@ struct ActivityDetailView: View {
         if activityKind == .applications && group.domain != nil { return false }
         if activityStatus == .active && group.isIdle { return false }
         if activityStatus == .idle && !group.isIdle { return false }
-        let assignedIDs = monitor.activityStore.assignedSegmentIDs
-        let hasAssigned = group.segments.contains { assignedIDs.contains($0.id) }
-        let hasUnassigned = group.segments.contains { !assignedIDs.contains($0.id) }
-        if assignmentStatus == .assigned && !hasAssigned { return false }
-        if assignmentStatus == .unassigned && !hasUnassigned { return false }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }
         return group.segments.contains { segment in
@@ -416,7 +446,7 @@ struct ActivityDetailView: View {
         var result: [ActivityGroup] = []
         var indexes: [String: Int] = [:]
         for group in groups.sorted(by: { $0.startedAt < $1.startedAt }) {
-            let key = "\(group.isIdle)|\(group.domain ?? group.applicationName)"
+            let key = "\(group.isIdle)|\(isAssigned(group))|\(group.domain ?? group.applicationName)"
             if let index = indexes[key],
                group.startedAt.timeIntervalSince(result[index].endedAt) <= 30 * 60 {
                 result[index].segments.append(contentsOf: group.segments)
@@ -426,6 +456,74 @@ struct ActivityDetailView: View {
             }
         }
         return result
+    }
+
+    private func splitByAssignment(_ groups: [ActivityGroup]) -> [ActivityGroup] {
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        return groups.flatMap { group -> [ActivityGroup] in
+            var result: [ActivityGroup] = []
+            var current: [ActivitySegment] = []
+            var currentIsAssigned: Bool?
+
+            for segment in group.segments {
+                let segmentIsAssigned = assignedIDs.contains(segment.id)
+                if currentIsAssigned != nil && currentIsAssigned != segmentIsAssigned {
+                    result.append(ActivityGroup(id: current[0].id, segments: current))
+                    current = []
+                }
+                current.append(segment)
+                currentIsAssigned = segmentIsAssigned
+            }
+            if let first = current.first {
+                result.append(ActivityGroup(id: first.id, segments: current))
+            }
+            return result
+        }
+    }
+
+    private var selectedPendingGroups: [ActivityGroup] {
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        return sortedGroups(dateGroups.filter(matchesFilters).compactMap { group in
+            let segments = group.segments.filter {
+                selectedSegmentIDs.contains($0.id) && !assignedIDs.contains($0.id)
+            }
+            guard let first = segments.first else { return nil }
+            return ActivityGroup(id: first.id, segments: segments)
+        })
+    }
+
+    private var assignedReferenceGroups: [ActivityGroup] {
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        return sortedGroups(dateGroups.filter(matchesFilters).compactMap { group in
+            let segments = group.segments.filter { assignedIDs.contains($0.id) }
+            guard let first = segments.first else { return nil }
+            return ActivityGroup(id: first.id, segments: segments)
+        })
+    }
+
+    private func matchesAssignmentFilter(_ group: ActivityGroup) -> Bool {
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        let hasAssigned = group.segments.contains { assignedIDs.contains($0.id) }
+        let hasPending = group.segments.contains { !assignedIDs.contains($0.id) }
+        switch assignmentStatus {
+        case .assigned: return hasAssigned
+        case .unassigned: return hasPending
+        case .all: return true
+        }
+    }
+
+    private func isAssigned(_ group: ActivityGroup) -> Bool {
+        group.segments.allSatisfy { monitor.activityStore.assignedSegmentIDs.contains($0.id) }
+    }
+
+    private func sortedGroups(_ groups: [ActivityGroup]) -> [ActivityGroup] {
+        switch sortMode {
+        case .time: return groups.sorted { $0.startedAt > $1.startedAt }
+        case .duration: return groups.sorted { $0.duration > $1.duration }
+        case .name: return groups.sorted {
+            $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+        }
+        }
     }
 
     private var selectedSegments: [ActivitySegment] {
