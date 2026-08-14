@@ -16,10 +16,10 @@ Conclusión: la inspección puede continuar, pero para crear, firmar y ejecutar 
 
 | Navegador | Bundle identifier | Versión comprobada | Resultado inicial |
 |---|---|---:|---|
-| Arc | `company.thebrowser.Browser` | 1.159.0 | Sin diccionario AppleScript Chromium estándar; requiere prueba controlada con Accesibilidad o extensión. |
-| Comet | `ai.perplexity.comet` | 151.0.7922.247 | Expone ventana, pestaña activa, título y URL mediante Apple Events. |
-| Brave | `com.brave.Browser` | 150.1.92.139 | Expone ventana, pestaña activa, título y URL mediante Apple Events. |
-| Safari | `com.apple.Safari` | 26.5.2 | Expone pestañas, título y URL mediante Apple Events. |
+| Arc | `company.thebrowser.Browser` | 1.159.0 | Validado: aunque no publica diccionario propio, acepta el protocolo Apple Events de Chromium y devuelve título y URL. |
+| Comet | `ai.perplexity.comet` | 151.0.7922.247 | Validado: `front window` mediante Apple Events devuelve correctamente título y URL; su título AX puede ser personalizado y no debe usarse para emparejar. |
+| Brave | `com.brave.Browser` | 150.1.92.139 | Validado con varias ventanas: Accesibilidad identifica la enfocada y Apple Events devuelve título y URL. |
+| Safari | `com.apple.Safari` | 26.5.2 | Validado: la pestaña actual de la ventana frontal devuelve título y URL mediante Apple Events. |
 
 No se leyeron ni almacenaron títulos o URLs de pestañas reales durante esta inspección.
 
@@ -27,8 +27,10 @@ No se leyeron ni almacenaron títulos o URLs de pestañas reales durante esta in
 
 - Detectar primero la aplicación frontal mediante `NSWorkspace`.
 - Comet y Brave: proveedor Chromium mediante Apple Events.
+- Comet puede asignar un nombre propio a la ventana que no contiene el título de la pestaña; cuando Comet sea la aplicación frontal se consultará directamente su pestaña activa mediante Apple Events.
+- En Brave, `front window` de Apple Events no siempre coincide con la ventana visualmente enfocada. La implementación debe obtener el título de la ventana frontal mediante Accesibilidad y buscar después la ventana/pestaña correspondiente mediante Apple Events.
 - Safari: proveedor Safari mediante Apple Events.
-- Arc: intentar título mediante Accesibilidad y URL mediante una prueba controlada. Si Arc no expone la URL de forma fiable, usar una extensión mínima con comunicación nativa solo para ese navegador.
+- Arc: utilizar los códigos Apple Events del proveedor Chromium dirigidos a su bundle identifier. La prueba controlada confirmó título y URL sin extensión.
 - Mantener un protocolo común `BrowserTabProvider` para que cada navegador pueda cambiar de implementación sin afectar el resto de la aplicación.
 
 ## API instalada de Timebase
@@ -78,8 +80,8 @@ El MVP utilizará inicialmente la creación de registros cerrados. Los temporiza
 
 ## Riesgos y mitigaciones
 
-1. Arc puede no entregar la URL mediante Apple Events.
-   - Mitigación: Accesibilidad para título y extensión mínima para URL si fuera necesaria.
+1. Arc no publica un diccionario AppleScript propio aunque acepte los eventos Chromium.
+   - Mitigación: encapsular los códigos de eventos en su proveedor y conservar una alternativa futura mediante extensión si Arc cambia este comportamiento.
 2. Los permisos de Automatización son individuales por navegador y Mac.
    - Mitigación: asistente de primera ejecución y estado visible de cada permiso.
 3. Una actualización de navegador puede modificar su interfaz de automatización.
@@ -90,8 +92,10 @@ El MVP utilizará inicialmente la creación de registros cerrados. Los temporiza
 ## Validaciones pendientes
 
 - Instalar Xcode completo y seleccionar su toolchain.
-- Probar cada navegador con una página controlada, después de conceder permisos.
+- Brave: prueba controlada completada correctamente con `http://example.com/` y varias ventanas abiertas.
+- Comet: prueba controlada completada correctamente con `http://example.com/`.
+- Safari: prueba controlada completada correctamente con `http://example.com/`.
+- Arc: prueba controlada completada correctamente con `http://example.com/` usando términos Chromium.
 - Crear un token de Timebase con permisos de lectura y escritura.
 - Consultar proyectos reales mediante API.
 - Crear y eliminar o revisar un único registro de prueba controlado.
-
