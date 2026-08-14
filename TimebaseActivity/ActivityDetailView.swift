@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ActivityDetailView: View {
     @EnvironmentObject private var monitor: ActivityMonitor
+    @State private var selectedSegmentIDs: Set<UUID> = []
 
     var body: some View {
         ScrollView {
@@ -23,6 +24,10 @@ struct ActivityDetailView: View {
                 }
 
                 localHistory
+
+                if !selectedSegmentIDs.isEmpty {
+                    selectionSummary
+                }
 
                 Spacer(minLength: 0)
             }
@@ -128,6 +133,7 @@ struct ActivityDetailView: View {
         DisclosureGroup {
             ForEach(group.segments) { segment in
                 HStack {
+                    selectionButton(for: [segment.id])
                     Text(segment.tabTitle ?? segment.windowTitle ?? "Sin título")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -141,6 +147,7 @@ struct ActivityDetailView: View {
             }
         } label: {
             HStack(spacing: 10) {
+                selectionButton(for: group.segments.map(\.id))
                 Circle()
                     .fill(group.isIdle ? .gray : .green)
                     .frame(width: 8, height: 8)
@@ -160,6 +167,81 @@ struct ActivityDetailView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var selectionSummary: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Selección preparada")
+                        .font(.headline)
+                    Text("\(selectedSegments.count) segmentos · \(preparedSessionCount) sesiones")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(durationText(selectedDuration))
+                    .font(.title3.monospacedDigit().bold())
+            }
+
+            Text("Las sesiones se separan cuando hay más de 30 minutos entre actividades. Los huecos no se suman.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack {
+                Button("Limpiar selección") {
+                    selectedSegmentIDs.removeAll()
+                }
+                Spacer()
+                Button("Elegir proyecto") {
+                    // La conexión con Timebase se añadirá después de validar esta selección local.
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(true)
+                .help("Disponible en el siguiente paso")
+            }
+        }
+        .padding()
+        .background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var selectedSegments: [ActivitySegment] {
+        monitor.activityStore.segments
+            .filter { selectedSegmentIDs.contains($0.id) }
+            .sorted { $0.startedAt < $1.startedAt }
+    }
+
+    private var selectedDuration: TimeInterval {
+        selectedSegments.reduce(0) { $0 + $1.duration }
+    }
+
+    private var preparedSessionCount: Int {
+        guard let first = selectedSegments.first else { return 0 }
+        var count = 1
+        var previousEnd = first.endedAt
+
+        for segment in selectedSegments.dropFirst() {
+            if segment.startedAt.timeIntervalSince(previousEnd) > 30 * 60 {
+                count += 1
+            }
+            previousEnd = max(previousEnd, segment.endedAt)
+        }
+        return count
+    }
+
+    private func selectionButton(for ids: [UUID]) -> some View {
+        let isSelected = ids.allSatisfy(selectedSegmentIDs.contains)
+        return Button {
+            if isSelected {
+                selectedSegmentIDs.subtract(ids)
+            } else {
+                selectedSegmentIDs.formUnion(ids)
+            }
+        } label: {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isSelected ? .blue : .secondary)
+        }
+        .buttonStyle(.plain)
+        .help(isSelected ? "Quitar de la selección" : "Añadir a la selección")
     }
 
     private func durationText(_ duration: TimeInterval) -> String {
