@@ -25,6 +25,8 @@ La aplicación será complementaria: no modificará el contenedor, la base de da
 - Registrar inicio, fin y duración real.
 - Detectar inactividad del teclado y ratón.
 - Usar 5 minutos como umbral de inactividad predeterminado del MVP, configurable posteriormente.
+- Conservar los periodos inactivos y mostrarlos en gris para revisión.
+- No enviar periodos inactivos a Timebase salvo que el usuario los recupere expresamente.
 - Pausar y reanudar el seguimiento desde la barra de menús.
 - Permitir excluir aplicaciones, títulos o sitios sensibles.
 
@@ -214,9 +216,13 @@ Timebase API Client → Clientes / Proyectos / Registros de tiempo
 - La aplicación funciona correctamente en el MacBook Pro M4 de desarrollo con macOS Tahoe 26.5.2.
 - Cada Mac mantiene su propia actividad, permisos, preferencias y credenciales locales.
 
-## 9. Decisiones pendientes antes de programar
+## 9. Decisiones cerradas antes de programar
 
-1. Si los periodos inactivos se eliminan o se muestran para revisión.
+- URL completa almacenada únicamente de forma local.
+- Cinco minutos como umbral de inactividad.
+- Periodos inactivos visibles en gris y recuperables manualmente.
+- MVP centrado en MacBook Pro M4 con macOS Tahoe 26.5.2.
+- Arc, Comet, Brave y Safari como navegadores prioritarios.
 
 ## 10. Equipo inicial
 
