@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 @main
@@ -17,5 +18,13 @@ struct TimebaseActivityApp: App {
                 .environmentObject(monitor)
         }
         .defaultSize(width: 620, height: 440)
+        .commands {
+            CommandGroup(replacing: .appTermination) {
+                Button("Salir de Timebase Activity") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .keyboardShortcut("q")
+            }
+        }
     }
 }

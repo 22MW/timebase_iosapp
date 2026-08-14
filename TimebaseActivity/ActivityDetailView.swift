@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ActivityDetailView: View {
@@ -85,6 +86,9 @@ struct ActivityDetailView: View {
             Spacer()
             Button(monitor.isPaused ? "Reanudar" : "Pausar") { monitor.togglePause() }
                 .buttonStyle(.borderedProminent)
+            Button("Salir") {
+                NSApplication.shared.terminate(nil)
+            }
         }
     }
 
