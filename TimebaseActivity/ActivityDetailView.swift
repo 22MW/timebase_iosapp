@@ -87,7 +87,6 @@ struct ActivityDetailView: View {
                     sessions: preparedSessions
                 ) { sentSegmentIDs in
                     selectedSegmentIDs.subtract(sentSegmentIDs)
-                    self.selectedProject = nil
                 }
             }
         }
