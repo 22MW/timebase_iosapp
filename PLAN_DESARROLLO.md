@@ -43,6 +43,9 @@ La aplicación será complementaria: no modificará el contenedor, la base de da
 - Dividir por defecto la selección en varias sesiones cuando exista un intervalo superior a 30 minutos entre actividades; el límite será configurable.
 - Para cada sesión, usar la hora del primer bloque y el tiempo real sumado, sin añadir los huecos entre actividades.
 - Permitir unir o separar manualmente las sesiones propuestas antes de enviarlas a Timebase.
+- Impedir que un segmento ya enviado vuelva a seleccionarse o contabilizarse en otro proyecto.
+- Permitir excluir aplicaciones mediante una lista negra persistente; sus segmentos se conservan localmente, pero no aparecen como tiempo asignable.
+- Incluir un resumen por periodo con tiempo asignado, pendiente y excluido, además del desglose por aplicación o sitio.
 - Permitir desactivar la agrupación por dominio globalmente o para dominios concretos.
 - Guardar localmente título, dominio y URL completa para permitir clasificación precisa y agrupación por dominio.
 - Permitir ocultar la ruta y conservar solo el dominio mediante una preferencia de privacidad.

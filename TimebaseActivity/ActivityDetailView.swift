@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ActivityDetailView: View {
     private enum ViewMode: String, CaseIterable, Identifiable {
-        case timeline = "Cronología", grouped = "Agrupado", selection = "Selección"
+        case timeline = "Cronología", grouped = "Agrupado", selection = "Selección", summary = "Resumen"
         var id: Self { self }
     }
     private enum ActivityKind: String, CaseIterable, Identifiable {
@@ -18,6 +18,17 @@ struct ActivityDetailView: View {
         case time = "Hora", duration = "Duración", name = "Nombre"
         var id: Self { self }
     }
+    private enum AssignmentStatus: String, CaseIterable, Identifiable {
+        case unassigned = "Sin asignar", assigned = "Asignado", all = "Todos"
+        var id: Self { self }
+    }
+    private struct SummaryRow: Identifiable {
+        let id: String
+        let name: String
+        var assigned: TimeInterval
+        var unassigned: TimeInterval
+        var total: TimeInterval { assigned + unassigned }
+    }
     private static let periodOptions = [
         "Rango personalizado", "Hoy", "Ayer", "Esta semana", "La semana pasada",
         "Las últimas dos semanas", "Este mes", "El mes pasado", "Este año", "El año pasado"
@@ -29,6 +40,7 @@ struct ActivityDetailView: View {
     @State private var selectedProject: TimebaseProject?
     @State private var showsProjectPicker = false
     @State private var showsEntryReview = false
+    @State private var showsBlacklist = false
     @State private var period = "Hoy"
     @State private var rangeStart = Calendar.current.startOfDay(for: Date())
     @State private var rangeEnd = Calendar.current.startOfDay(for: Date())
@@ -36,6 +48,7 @@ struct ActivityDetailView: View {
     @State private var activityKind = ActivityKind.all
     @State private var activityStatus = ActivityStatus.all
     @State private var sortMode = SortMode.time
+    @State private var assignmentStatus = AssignmentStatus.unassigned
     @State private var searchText = ""
     @State private var hidesShortActivities = true
     @State private var isLiveExpanded = false
@@ -53,7 +66,7 @@ struct ActivityDetailView: View {
                 }
                 .padding(20)
             }
-            if !selectedSegmentIDs.isEmpty {
+            if !selectedSegments.isEmpty {
                 Divider()
                 selectionSummary
                     .padding(16)
@@ -78,6 +91,9 @@ struct ActivityDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $showsBlacklist) {
+            BlacklistView(activityStore: monitor.activityStore)
+        }
     }
 
     private var header: some View {
@@ -92,6 +108,9 @@ struct ActivityDetailView: View {
                 .buttonStyle(.borderedProminent)
             Button("Salir") {
                 NSApplication.shared.terminate(nil)
+            }
+            Button("Lista negra") {
+                showsBlacklist = true
             }
         }
     }
@@ -163,6 +182,10 @@ struct ActivityDetailView: View {
             HStack {
                 Toggle("Ocultar menos de 10 segundos", isOn: $hidesShortActivities)
                     .toggleStyle(.checkbox)
+                Picker("Asignación", selection: $assignmentStatus) {
+                    ForEach(AssignmentStatus.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .frame(width: 145)
                 Spacer()
                 Text("Ordenar por").foregroundStyle(.secondary)
                 Picker("Orden", selection: $sortMode) {
@@ -176,7 +199,9 @@ struct ActivityDetailView: View {
 
     private var activityList: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if let error = monitor.activityStore.storageError {
+            if viewMode == .summary {
+                summaryView
+            } else if let error = monitor.activityStore.storageError {
                 Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             } else if visibleGroups.isEmpty {
                 ContentUnavailableView(
@@ -193,6 +218,39 @@ struct ActivityDetailView: View {
         }
         .padding()
         .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var summaryView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                summaryCard("Actividad total", summaryEligibleDuration, color: .blue)
+                summaryCard("Asignado", summaryAssignedDuration, color: .green)
+                summaryCard("Sin asignar", summaryUnassignedDuration, color: .orange)
+                summaryCard("Lista negra", summaryExcludedDuration, color: .gray)
+            }
+            Text("Aplicaciones y sitios").font(.headline)
+            ForEach(summaryRows) { row in
+                HStack {
+                    Text(row.name).lineLimit(1)
+                    Spacer()
+                    Text("Asignado \(durationText(row.assigned))").foregroundStyle(.green)
+                    Text("Pendiente \(durationText(row.unassigned))").foregroundStyle(.orange)
+                    Text(durationText(row.total)).monospacedDigit()
+                        .frame(width: 110, alignment: .trailing)
+                }
+                Divider()
+            }
+        }
+    }
+
+    private func summaryCard(_ title: String, _ duration: TimeInterval, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(durationText(duration)).font(.headline.monospacedDigit()).foregroundStyle(color)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var permissionNotice: some View {
@@ -257,6 +315,10 @@ struct ActivityDetailView: View {
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
+                if group.segments.allSatisfy({ monitor.activityStore.assignedSegmentIDs.contains($0.id) }) {
+                    Label("Asignado", systemImage: "checkmark.circle.fill")
+                        .font(.caption).foregroundStyle(.green)
+                }
                 Text(group.startedAt, style: .time).monospacedDigit().foregroundStyle(.tertiary)
                 Text(durationText(group.duration)).monospacedDigit().foregroundStyle(.secondary)
                     .frame(width: 64, alignment: .trailing)
@@ -302,6 +364,16 @@ struct ActivityDetailView: View {
         }
     }
 
+    private var rawDateSegments: [ActivitySegment] {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: rangeStart)
+        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: rangeEnd)) ?? rangeEnd
+        return monitor.activityStore.segments.filter {
+            $0.bundleIdentifier != "online.22mw.timebase.activity"
+                && $0.startedAt >= start && $0.startedAt < end
+        }
+    }
+
     private var visibleGroups: [ActivityGroup] {
         var groups = dateGroups.filter(matchesFilters)
         if viewMode == .grouped {
@@ -322,6 +394,11 @@ struct ActivityDetailView: View {
         if activityKind == .applications && group.domain != nil { return false }
         if activityStatus == .active && group.isIdle { return false }
         if activityStatus == .idle && !group.isIdle { return false }
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        let hasAssigned = group.segments.contains { assignedIDs.contains($0.id) }
+        let hasUnassigned = group.segments.contains { !assignedIDs.contains($0.id) }
+        if assignmentStatus == .assigned && !hasAssigned { return false }
+        if assignmentStatus == .unassigned && !hasUnassigned { return false }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }
         return group.segments.contains { segment in
@@ -348,7 +425,12 @@ struct ActivityDetailView: View {
     }
 
     private var selectedSegments: [ActivitySegment] {
-        monitor.activityStore.segments.filter { selectedSegmentIDs.contains($0.id) }
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        return monitor.activityStore.segments.filter {
+            selectedSegmentIDs.contains($0.id)
+                && !assignedIDs.contains($0.id)
+                && !monitor.activityStore.blacklistedBundleIDs.contains($0.bundleIdentifier ?? "")
+        }
             .sorted { $0.startedAt < $1.startedAt }
     }
     private var selectedDuration: TimeInterval { selectedSegments.reduce(0) { $0 + $1.duration } }
@@ -360,13 +442,63 @@ struct ActivityDetailView: View {
     }
 
     private func selectionButton(for ids: [UUID]) -> some View {
-        let isSelected = ids.allSatisfy(selectedSegmentIDs.contains)
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        let availableIDs = ids.filter { !assignedIDs.contains($0) }
+        let isSelected = !availableIDs.isEmpty && availableIDs.allSatisfy(selectedSegmentIDs.contains)
         return Button {
-            if isSelected { selectedSegmentIDs.subtract(ids) } else { selectedSegmentIDs.formUnion(ids) }
+            if isSelected {
+                selectedSegmentIDs.subtract(availableIDs)
+            } else {
+                selectedSegmentIDs.formUnion(availableIDs)
+            }
         } label: {
-            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(isSelected ? .blue : .secondary)
-        }.buttonStyle(.plain)
+            Image(systemName: availableIDs.isEmpty ? "checkmark.circle.fill" : (isSelected ? "checkmark.circle.fill" : "circle"))
+                .foregroundStyle(availableIDs.isEmpty ? .green : (isSelected ? .blue : .secondary))
+        }
+        .buttonStyle(.plain)
+        .disabled(availableIDs.isEmpty)
+    }
+
+    private var summaryAssignedDuration: TimeInterval {
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        return rawDateSegments.filter { assignedIDs.contains($0.id) }.reduce(0) { $0 + $1.duration }
+    }
+
+    private var summaryUnassignedDuration: TimeInterval {
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        return rawDateSegments.filter {
+            !assignedIDs.contains($0.id)
+                && !monitor.activityStore.blacklistedBundleIDs.contains($0.bundleIdentifier ?? "")
+        }.reduce(0) { $0 + $1.duration }
+    }
+
+    private var summaryExcludedDuration: TimeInterval {
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        return rawDateSegments.filter {
+            !assignedIDs.contains($0.id)
+                && monitor.activityStore.blacklistedBundleIDs.contains($0.bundleIdentifier ?? "")
+        }.reduce(0) { $0 + $1.duration }
+    }
+
+    private var summaryEligibleDuration: TimeInterval {
+        summaryAssignedDuration + summaryUnassignedDuration
+    }
+
+    private var summaryRows: [SummaryRow] {
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        var rows: [String: SummaryRow] = [:]
+        for segment in rawDateSegments
+        where !monitor.activityStore.blacklistedBundleIDs.contains(segment.bundleIdentifier ?? "") {
+            let name = segment.domain ?? segment.applicationName
+            var row = rows[name] ?? SummaryRow(id: name, name: name, assigned: 0, unassigned: 0)
+            if assignedIDs.contains(segment.id) {
+                row.assigned += segment.duration
+            } else {
+                row.unassigned += segment.duration
+            }
+            rows[name] = row
+        }
+        return rows.values.sorted { $0.total > $1.total }
     }
 
     private var periodRangeText: String {

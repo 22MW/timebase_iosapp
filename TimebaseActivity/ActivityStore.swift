@@ -75,15 +75,20 @@ struct TimebaseExportRecord: Codable, Identifiable {
 final class ActivityStore: ObservableObject {
     @Published private(set) var segments: [ActivitySegment] = []
     @Published private(set) var exports: [TimebaseExportRecord] = []
+    @Published private(set) var blacklistedBundleIDs: Set<String> = []
     @Published private(set) var storageError: String?
 
     private let fileURL: URL
     private let exportsFileURL: URL
+    private let settingsFileURL: URL
     private var forceNewSegment = false
 
     var groupedActivities: [ActivityGroup] {
         segments
-            .filter { $0.bundleIdentifier != "online.22mw.timebase.activity" }
+            .filter {
+                $0.bundleIdentifier != "online.22mw.timebase.activity"
+                    && !blacklistedBundleIDs.contains($0.bundleIdentifier ?? "")
+            }
             .reduce(into: [ActivityGroup]()) { groups, segment in
                 if let index = groups.indices.last, groups[index].canInclude(segment) {
                     groups[index].segments.append(segment)
@@ -110,6 +115,7 @@ final class ActivityStore: ObservableObject {
         )
         fileURL = directory.appending(component: "activities.json")
         exportsFileURL = directory.appending(component: "exports.json")
+        settingsFileURL = directory.appending(component: "settings.json")
 
         do {
             try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -124,6 +130,10 @@ final class ActivityStore: ObservableObject {
                 let decoder = JSONDecoder()
                 decoder.dateDecodingStrategy = .iso8601
                 exports = try decoder.decode([TimebaseExportRecord].self, from: data)
+            }
+            if fileManager.fileExists(atPath: settingsFileURL.path) {
+                let data = try Data(contentsOf: settingsFileURL)
+                blacklistedBundleIDs = try JSONDecoder().decode(Set<String>.self, from: data)
             }
         } catch {
             storageError = "No se pudo leer el historial local: \(error.localizedDescription)"
@@ -167,6 +177,19 @@ final class ActivityStore: ObservableObject {
         saveExports()
     }
 
+    var assignedSegmentIDs: Set<UUID> {
+        Set(exports.flatMap(\.segmentIDs))
+    }
+
+    func setBlacklisted(_ isBlacklisted: Bool, bundleIdentifier: String) {
+        if isBlacklisted {
+            blacklistedBundleIDs.insert(bundleIdentifier)
+        } else {
+            blacklistedBundleIDs.remove(bundleIdentifier)
+        }
+        saveSettings()
+    }
+
     func finishCurrentSegment(at date: Date = Date()) {
         guard let index = segments.indices.last else { return }
         segments[index].endedAt = max(segments[index].endedAt, date)
@@ -195,6 +218,16 @@ final class ActivityStore: ObservableObject {
             storageError = nil
         } catch {
             storageError = "No se pudo guardar el registro de envíos: \(error.localizedDescription)"
+        }
+    }
+
+    private func saveSettings() {
+        do {
+            let data = try JSONEncoder().encode(blacklistedBundleIDs)
+            try data.write(to: settingsFileURL, options: .atomic)
+            storageError = nil
+        } catch {
+            storageError = "No se pudo guardar la lista negra: \(error.localizedDescription)"
         }
     }
 }

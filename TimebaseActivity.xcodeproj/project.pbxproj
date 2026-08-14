@@ -19,6 +19,7 @@
 		A1000000000000000000000A /* ProjectPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* ProjectPickerView.swift */; };
 		A1000000000000000000000B /* PreparedEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* PreparedEntry.swift */; };
 		A1000000000000000000000C /* EntryReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* EntryReviewView.swift */; };
+		A1000000000000000000000D /* BlacklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* BlacklistView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +37,7 @@
 		A2000000000000000000000C /* ProjectPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPickerView.swift; sourceTree = "<group>"; };
 		A2000000000000000000000D /* PreparedEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedEntry.swift; sourceTree = "<group>"; };
 		A2000000000000000000000E /* EntryReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryReviewView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000F /* BlacklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlacklistView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,6 +72,7 @@
 				A2000000000000000000000C /* ProjectPickerView.swift */,
 				A2000000000000000000000D /* PreparedEntry.swift */,
 				A2000000000000000000000E /* EntryReviewView.swift */,
+				A2000000000000000000000F /* BlacklistView.swift */,
 				A20000000000000000000008 /* Info.plist */,
 			);
 			path = TimebaseActivity;
@@ -173,6 +176,7 @@
 				A1000000000000000000000A /* ProjectPickerView.swift in Sources */,
 				A1000000000000000000000B /* PreparedEntry.swift in Sources */,
 				A1000000000000000000000C /* EntryReviewView.swift in Sources */,
+				A1000000000000000000000D /* BlacklistView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
