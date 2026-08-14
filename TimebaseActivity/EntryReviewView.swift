@@ -10,6 +10,7 @@ struct EntryReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var activityStore: ActivityStore
     let project: TimebaseProject
+    let onComplete: (Set<UUID>) -> Void
     @State private var drafts: [SessionDraft]
     @State private var showsSendConfirmation = false
     @State private var isSending = false
@@ -17,9 +18,15 @@ struct EntryReviewView: View {
     @State private var sendError: String?
     @State private var didFinishSending = false
 
-    init(activityStore: ActivityStore, project: TimebaseProject, sessions: [PreparedSession]) {
+    init(
+        activityStore: ActivityStore,
+        project: TimebaseProject,
+        sessions: [PreparedSession],
+        onComplete: @escaping (Set<UUID>) -> Void
+    ) {
         self.activityStore = activityStore
         self.project = project
+        self.onComplete = onComplete
         _drafts = State(initialValue: sessions.map { session in
             SessionDraft(
                 id: session.id,
@@ -114,8 +121,13 @@ struct EntryReviewView: View {
     }
 
     private func durationText(_ duration: TimeInterval) -> String {
-        let minutes = Int(duration / 60)
-        return minutes >= 60 ? "\(minutes / 60) h \(minutes % 60) min" : "\(minutes) min"
+        let seconds = Int(duration.rounded(.down))
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        let remainingSeconds = seconds % 60
+        if hours > 0 { return "\(hours) h \(minutes) min" }
+        if minutes > 0 { return "\(minutes) min \(remainingSeconds) s" }
+        return "\(remainingSeconds) s"
     }
 
     private var remainingDrafts: [SessionDraft] {
@@ -143,5 +155,6 @@ struct EntryReviewView: View {
         }
         didFinishSending = true
         isSending = false
+        onComplete(Set(drafts.flatMap { $0.session.segments.map(\.id) }))
     }
 }

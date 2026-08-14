@@ -72,7 +72,10 @@ struct ActivityDetailView: View {
                     activityStore: monitor.activityStore,
                     project: selectedProject,
                     sessions: preparedSessions
-                )
+                ) { sentSegmentIDs in
+                    selectedSegmentIDs.subtract(sentSegmentIDs)
+                    self.selectedProject = nil
+                }
             }
         }
     }
@@ -421,8 +424,8 @@ struct ActivityDetailView: View {
         let hours = seconds / 3600
         let minutes = (seconds % 3600) / 60
         let remainingSeconds = seconds % 60
-        return hours > 0
-            ? String(format: "%d:%02d:%02d", hours, minutes, remainingSeconds)
-            : String(format: "%02d:%02d", minutes, remainingSeconds)
+        if hours > 0 { return "\(hours) h \(minutes) min" }
+        if minutes > 0 { return "\(minutes) min \(remainingSeconds) s" }
+        return "\(remainingSeconds) s"
     }
 }
