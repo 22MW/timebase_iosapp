@@ -73,12 +73,18 @@ final class ActivityStore: ObservableObject {
     var groupedActivities: [ActivityGroup] {
         segments
             .filter { $0.bundleIdentifier != "online.22mw.timebase.activity" }
-            .reduce(into: []) { groups, segment in
-            if let index = groups.indices.last, groups[index].canInclude(segment) {
-                groups[index].segments.append(segment)
-            } else {
-                groups.append(ActivityGroup(id: segment.id, segments: [segment]))
+            .reduce(into: [ActivityGroup]()) { groups, segment in
+                if let index = groups.indices.last, groups[index].canInclude(segment) {
+                    groups[index].segments.append(segment)
+                } else {
+                    groups.append(ActivityGroup(id: segment.id, segments: [segment]))
+                }
             }
+    }
+
+    var todayGroupedActivities: [ActivityGroup] {
+        groupedActivities.filter {
+            Calendar.current.isDate($0.startedAt, inSameDayAs: Date())
         }
     }
 

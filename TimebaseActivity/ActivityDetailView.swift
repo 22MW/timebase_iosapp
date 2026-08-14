@@ -106,10 +106,10 @@ struct ActivityDetailView: View {
     private var localHistory: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Actividad reciente")
+                Text("Actividad de hoy")
                     .font(.headline)
                 Spacer()
-                Text("\(monitor.activityStore.groupedActivities.count) actividades")
+                Text("\(monitor.activityStore.todayGroupedActivities.count) actividades")
                     .foregroundStyle(.secondary)
             }
 
@@ -120,7 +120,7 @@ struct ActivityDetailView: View {
                 Text("Todavía no hay actividad guardada.")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(monitor.activityStore.groupedActivities.suffix(5).reversed()) { group in
+                ForEach(monitor.activityStore.todayGroupedActivities.reversed()) { group in
                     activityGroup(group)
                 }
             }
