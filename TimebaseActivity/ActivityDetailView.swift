@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ActivityDetailView: View {
     private enum ViewMode: String, CaseIterable, Identifiable {
-        case timeline = "Cronología", grouped = "Agrupado", selection = "Selección", summary = "Resumen"
+        case timeline = "Cronología", day = "Día", grouped = "Agrupado", selection = "Selección", summary = "Resumen"
         var id: Self { self }
     }
     private enum ActivityKind: String, CaseIterable, Identifiable {
@@ -203,6 +203,12 @@ struct ActivityDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             if viewMode == .summary {
                 summaryView
+            } else if viewMode == .day {
+                DayTimelineView(
+                    activityStore: monitor.activityStore,
+                    date: rangeStart,
+                    selectedSegmentIDs: $selectedSegmentIDs
+                )
             } else if viewMode == .selection {
                 selectionActivityList
             } else if let error = monitor.activityStore.storageError {

@@ -48,6 +48,10 @@ La aplicación será complementaria: no modificará el contenedor, la base de da
 - Incluir un resumen por periodo con tiempo asignado, pendiente y excluido, además del desglose por aplicación o sitio.
 - Añadir una vista Calendario diaria por horas, con eje temporal, bloques colocados según su inicio y duración, navegación entre días y control de zoom.
 - Permitir distinguir en la vista horaria actividades asignadas, pendientes, inactivas y excluidas mediante colores o capas.
+- Hacer seleccionables los bloques de la vista diaria y reutilizar el mismo panel inferior de proyecto, sesiones, descripción y envío.
+- Agrupar en un solo bloque los segmentos consecutivos de la misma aplicación mientras el usuario no cambie a otra aplicación, aunque cambien la ventana, pestaña o título.
+- Usar blanco para bloques asignados, verde para pendientes y azul para los seleccionados; los asignados permanecen bloqueados.
+- Mostrar al pasar el cursor un panel con los segmentos internos, títulos, horarios, duración y proyecto asignado.
 - Mantener visibles las actividades asignadas cuando el filtro lo permita, identificadas con un punto blanco y sin posibilidad de volver a seleccionarlas.
 - Mostrar debajo de cada actividad asignada el cliente y proyecto de Timebase al que fue enviada.
 - Permitir seleccionar directamente actividades pendientes desde la vista Resumen, tanto por aplicación/sitio completo como mediante sus segmentos desplegados.
