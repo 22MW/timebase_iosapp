@@ -102,8 +102,8 @@ No se solicitará permiso de micrófono, cámara ni grabación de pantalla para 
 ## 5. Arquitectura propuesta
 
 - Aplicación nativa: Swift y SwiftUI.
-- Objetivo de despliegue inicial: macOS 14 Sonoma o posterior.
-- Arquitectura inicial: Apple Silicon (`arm64`), compatible con las generaciones M1, M2, M3 y M4.
+- Objetivo de despliegue y pruebas del MVP: MacBook Pro M4 con macOS Tahoe 26.5.2.
+- Arquitectura inicial: Apple Silicon (`arm64`). La compatibilidad con otros chips M se tendrá en cuenta, pero no será un requisito de prueba del MVP.
 - La captura y la integración con navegadores no dependerán del nombre, número de serie ni configuración de un Mac concreto.
 - Icono y controles rápidos en la barra de menús.
 - Persistencia local: SQLite mediante SwiftData o una capa SQLite explícita.
@@ -188,8 +188,8 @@ Timebase API Client → Clientes / Proyectos / Registros de tiempo
 - Plantillas y redondeo.
 - Inicio automático, exportación local y recuperación ante fallos.
 - Pruebas prolongadas de batería, memoria y estabilidad.
-- Matriz de pruebas en varias versiones de macOS y generaciones de Apple Silicon.
-- Pruebas de actualización de macOS conservando permisos, preferencias y base de datos local.
+- Preparar una matriz futura de pruebas en otras versiones de macOS y generaciones de Apple Silicon, sin bloquear el MVP.
+- Mantener el diseño preparado para conservar permisos, preferencias y base de datos local al actualizar macOS.
 
 ### Fase 5 — Distribución
 
@@ -211,14 +211,13 @@ Timebase API Client → Clientes / Proyectos / Registros de tiempo
 - Un segmento enviado no puede reenviarse accidentalmente.
 - Actualizar Timebase no afecta al capturador ni elimina sus datos.
 - Pausar el seguimiento impide cualquier nueva captura.
-- La misma compilación puede instalarse en varios Macs compatibles sin cambios en el código.
+- La aplicación funciona correctamente en el MacBook Pro M4 de desarrollo con macOS Tahoe 26.5.2.
 - Cada Mac mantiene su propia actividad, permisos, preferencias y credenciales locales.
 
 ## 9. Decisiones pendientes antes de programar
 
 1. Umbral de inactividad deseado.
 2. Si los periodos inactivos se eliminan o se muestran para revisión.
-3. Si también se necesita compatibilidad con Macs Intel además de Apple Silicon.
 
 ## 10. Equipo inicial
 
@@ -243,9 +242,9 @@ Timebase API Client → Clientes / Proyectos / Registros de tiempo
 
 ## 13. Compatibilidad y distribución
 
-- La aplicación se diseñará para varios equipos, no exclusivamente para el Mac de desarrollo.
-- Compatibilidad inicial prevista: macOS 14 Sonoma, macOS 15 Sequoia y macOS 26 Tahoe o posteriores compatibles.
-- Hardware inicial: Macs con Apple Silicon M1, M2, M3 y M4.
+- El MVP se desarrollará, probará y optimizará para el MacBook Pro M4 con macOS Tahoe 26.5.2.
+- Otros Macs Apple Silicon y otras versiones de macOS se tendrán en cuenta en las decisiones técnicas, pero no serán objetivo de pruebas ni bloquearán entregas inicialmente.
+- La compatibilidad con Intel queda fuera del alcance inicial.
 - Cada instalación tendrá una base local independiente y guardará su token de Timebase en su propio Llavero.
 - Los permisos de Accesibilidad y Automatización deberán concederse una vez en cada Mac.
 - La distribución final estará firmada y notarizada para evitar avisos de aplicación no identificada.
