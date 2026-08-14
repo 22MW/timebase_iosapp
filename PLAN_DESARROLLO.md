@@ -24,7 +24,7 @@ La aplicación será complementaria: no modificará el contenedor, la base de da
 - Crear un periodo nuevo cuando cambie la aplicación o el título relevante.
 - Registrar inicio, fin y duración real.
 - Detectar inactividad del teclado y ratón.
-- Permitir configurar el umbral de inactividad, inicialmente 5 minutos.
+- Usar 5 minutos como umbral de inactividad predeterminado del MVP, configurable posteriormente.
 - Pausar y reanudar el seguimiento desde la barra de menús.
 - Permitir excluir aplicaciones, títulos o sitios sensibles.
 
@@ -216,8 +216,7 @@ Timebase API Client → Clientes / Proyectos / Registros de tiempo
 
 ## 9. Decisiones pendientes antes de programar
 
-1. Umbral de inactividad deseado.
-2. Si los periodos inactivos se eliminan o se muestran para revisión.
+1. Si los periodos inactivos se eliminan o se muestran para revisión.
 
 ## 10. Equipo inicial
 
