@@ -17,10 +17,16 @@ struct ActivityDetailView: View {
         case time = "Hora", duration = "Duración", name = "Nombre"
         var id: Self { self }
     }
+    private static let periodOptions = [
+        "Rango personalizado", "Hoy", "Ayer", "Esta semana", "La semana pasada",
+        "Las últimas dos semanas", "Este mes", "El mes pasado", "Este año", "El año pasado"
+    ]
 
     @EnvironmentObject private var monitor: ActivityMonitor
     @State private var selectedSegmentIDs: Set<UUID> = []
-    @State private var selectedDate = Date()
+    @State private var period = "Hoy"
+    @State private var rangeStart = Calendar.current.startOfDay(for: Date())
+    @State private var rangeEnd = Calendar.current.startOfDay(for: Date())
     @State private var viewMode = ViewMode.timeline
     @State private var activityKind = ActivityKind.all
     @State private var activityStatus = ActivityStatus.all
@@ -91,10 +97,22 @@ struct ActivityDetailView: View {
     private var navigation: some View {
         VStack(spacing: 12) {
             HStack {
-                Button { changeDay(by: -1) } label: { Image(systemName: "chevron.left") }
-                DatePicker("Fecha", selection: $selectedDate, displayedComponents: .date).labelsHidden()
-                Button { changeDay(by: 1) } label: { Image(systemName: "chevron.right") }
-                Button("Hoy") { selectedDate = Date() }
+                Text("Periodo").foregroundStyle(.secondary)
+                Picker("Periodo", selection: $period) {
+                    ForEach(Self.periodOptions, id: \.self) { Text($0).tag($0) }
+                }
+                .labelsHidden()
+                .frame(width: 210)
+                .onChange(of: period) { _, newPeriod in
+                    updateRange(for: newPeriod)
+                }
+
+                if period == "Rango personalizado" {
+                    DatePicker("Desde", selection: $rangeStart, in: ...rangeEnd, displayedComponents: .date)
+                    DatePicker("Hasta", selection: $rangeEnd, in: rangeStart..., displayedComponents: .date)
+                } else {
+                    Text(periodRangeText).foregroundStyle(.secondary)
+                }
                 Spacer()
                 Text("\(visibleGroups.count) actividades").foregroundStyle(.secondary)
             }
@@ -239,8 +257,11 @@ struct ActivityDetailView: View {
     }
 
     private var dateGroups: [ActivityGroup] {
-        monitor.activityStore.groupedActivities.filter {
-            Calendar.current.isDate($0.startedAt, inSameDayAs: selectedDate)
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: rangeStart)
+        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: rangeEnd)) ?? rangeEnd
+        return monitor.activityStore.groupedActivities.filter {
+            $0.startedAt >= start && $0.startedAt < end
         }
     }
 
@@ -278,7 +299,8 @@ struct ActivityDetailView: View {
         var indexes: [String: Int] = [:]
         for group in groups.sorted(by: { $0.startedAt < $1.startedAt }) {
             let key = "\(group.isIdle)|\(group.domain ?? group.applicationName)"
-            if let index = indexes[key] {
+            if let index = indexes[key],
+               group.startedAt.timeIntervalSince(result[index].endedAt) <= 30 * 60 {
                 result[index].segments.append(contentsOf: group.segments)
             } else {
                 indexes[key] = result.count
@@ -314,8 +336,54 @@ struct ActivityDetailView: View {
         }.buttonStyle(.plain)
     }
 
-    private func changeDay(by value: Int) {
-        selectedDate = Calendar.current.date(byAdding: .day, value: value, to: selectedDate) ?? selectedDate
+    private var periodRangeText: String {
+        if Calendar.current.isDate(rangeStart, inSameDayAs: rangeEnd) {
+            return rangeStart.formatted(date: .long, time: .omitted)
+        }
+        return "\(rangeStart.formatted(date: .abbreviated, time: .omitted)) – \(rangeEnd.formatted(date: .abbreviated, time: .omitted))"
+    }
+
+    private func updateRange(for newPeriod: String) {
+        guard newPeriod != "Rango personalizado" else { return }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        switch newPeriod {
+        case "Rango personalizado":
+            break
+        case "Hoy":
+            rangeStart = today; rangeEnd = today
+        case "Ayer":
+            let day = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+            rangeStart = day; rangeEnd = day
+        case "Esta semana":
+            let start = calendar.dateInterval(of: .weekOfYear, for: today)?.start ?? today
+            rangeStart = start; rangeEnd = today
+        case "La semana pasada":
+            let thisStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start ?? today
+            rangeStart = calendar.date(byAdding: .weekOfYear, value: -1, to: thisStart) ?? today
+            rangeEnd = calendar.date(byAdding: .day, value: -1, to: thisStart) ?? today
+        case "Las últimas dos semanas":
+            rangeStart = calendar.date(byAdding: .day, value: -13, to: today) ?? today
+            rangeEnd = today
+        case "Este mes":
+            rangeStart = calendar.dateInterval(of: .month, for: today)?.start ?? today
+            rangeEnd = today
+        case "El mes pasado":
+            let thisStart = calendar.dateInterval(of: .month, for: today)?.start ?? today
+            let lastStart = calendar.date(byAdding: .month, value: -1, to: thisStart) ?? today
+            rangeStart = lastStart
+            rangeEnd = calendar.date(byAdding: .day, value: -1, to: thisStart) ?? today
+        case "Este año":
+            rangeStart = calendar.dateInterval(of: .year, for: today)?.start ?? today
+            rangeEnd = today
+        case "El año pasado":
+            let thisStart = calendar.dateInterval(of: .year, for: today)?.start ?? today
+            rangeStart = calendar.date(byAdding: .year, value: -1, to: thisStart) ?? today
+            rangeEnd = calendar.date(byAdding: .day, value: -1, to: thisStart) ?? today
+        default:
+            break
+        }
     }
 
     private func durationText(_ duration: TimeInterval) -> String {
