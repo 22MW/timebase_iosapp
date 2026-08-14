@@ -27,6 +27,7 @@ struct ActivityDetailView: View {
         let name: String
         var assigned: TimeInterval
         var unassigned: TimeInterval
+        var unassignedSegmentIDs: [UUID]
         var total: TimeInterval { assigned + unassigned }
     }
     private static let periodOptions = [
@@ -230,6 +231,7 @@ struct ActivityDetailView: View {
             Text("Aplicaciones y sitios").font(.headline)
             ForEach(summaryRows) { row in
                 HStack {
+                    selectionButton(for: row.unassignedSegmentIDs)
                     Text(row.name).lineLimit(1)
                     Spacer()
                     Text("Asignado \(durationText(row.assigned))").foregroundStyle(.green)
@@ -312,11 +314,14 @@ struct ActivityDetailView: View {
                          ? (group.segments[0].tabTitle ?? group.segments[0].windowTitle ?? "Sin título")
                          : "\(group.segments.count) pestañas o segmentos")
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    if let assignment = assignmentText(for: group) {
+                        Text(assignment).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
                 }
                 Spacer()
                 if group.segments.allSatisfy({ monitor.activityStore.assignedSegmentIDs.contains($0.id) }) {
-                    Label("Asignado", systemImage: "checkmark.circle.fill")
-                        .font(.caption).foregroundStyle(.green)
+                    Label("Asignado", systemImage: "circle.fill")
+                        .font(.caption).foregroundStyle(.white)
                 }
                 Text(group.startedAt, style: .time).monospacedDigit().foregroundStyle(.tertiary)
                 Text(durationText(group.duration)).monospacedDigit().foregroundStyle(.secondary)
@@ -451,8 +456,8 @@ struct ActivityDetailView: View {
                 selectedSegmentIDs.formUnion(availableIDs)
             }
         } label: {
-            Image(systemName: availableIDs.isEmpty ? "checkmark.circle.fill" : (isSelected ? "checkmark.circle.fill" : "circle"))
-                .foregroundStyle(availableIDs.isEmpty ? .green : (isSelected ? .blue : .secondary))
+            Image(systemName: availableIDs.isEmpty ? "circle.fill" : (isSelected ? "checkmark.circle.fill" : "circle"))
+                .foregroundStyle(availableIDs.isEmpty ? .white : (isSelected ? .blue : .secondary))
         }
         .buttonStyle(.plain)
         .disabled(availableIDs.isEmpty)
@@ -489,15 +494,37 @@ struct ActivityDetailView: View {
         for segment in rawDateSegments
         where !monitor.activityStore.blacklistedBundleIDs.contains(segment.bundleIdentifier ?? "") {
             let name = segment.domain ?? segment.applicationName
-            var row = rows[name] ?? SummaryRow(id: name, name: name, assigned: 0, unassigned: 0)
+            var row = rows[name] ?? SummaryRow(
+                id: name,
+                name: name,
+                assigned: 0,
+                unassigned: 0,
+                unassignedSegmentIDs: []
+            )
             if assignedIDs.contains(segment.id) {
                 row.assigned += segment.duration
             } else {
                 row.unassigned += segment.duration
+                row.unassignedSegmentIDs.append(segment.id)
             }
             rows[name] = row
         }
         return rows.values.sorted { $0.total > $1.total }
+    }
+
+    private func assignmentText(for group: ActivityGroup) -> String? {
+        let segmentIDs = Set(group.segments.map(\.id))
+        let records = monitor.activityStore.exports.filter { record in
+            !segmentIDs.isDisjoint(with: Set(record.segmentIDs))
+        }
+        guard !records.isEmpty else { return nil }
+        let labels = records.map { record in
+            if let clientName = record.clientName, !clientName.isEmpty {
+                return "\(clientName) · \(record.projectName)"
+            }
+            return record.projectName
+        }
+        return Array(Set(labels)).sorted().joined(separator: ", ")
     }
 
     private var periodRangeText: String {

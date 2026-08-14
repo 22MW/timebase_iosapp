@@ -67,6 +67,7 @@ struct TimebaseExportRecord: Codable, Identifiable {
     let timebaseEntryID: String
     let projectID: String
     let projectName: String
+    let clientName: String?
     let segmentIDs: [UUID]
     let exportedAt: Date
 }
@@ -171,6 +172,7 @@ final class ActivityStore: ObservableObject {
             timebaseEntryID: entryID,
             projectID: project.id,
             projectName: project.name,
+            clientName: project.clientName,
             segmentIDs: session.segments.map(\.id),
             exportedAt: Date()
         ))
