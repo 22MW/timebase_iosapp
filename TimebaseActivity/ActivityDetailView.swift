@@ -323,7 +323,9 @@ struct ActivityDetailView: View {
         DisclosureGroup {
             ForEach(group.segments) { segment in
                 HStack {
-                    selectionButton(for: [segment.id])
+                    if !monitor.activityStore.assignedSegmentIDs.contains(segment.id) {
+                        selectionButton(for: [segment.id])
+                    }
                     Text(segment.tabTitle ?? segment.windowTitle ?? "Sin título")
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     Spacer()
@@ -336,8 +338,9 @@ struct ActivityDetailView: View {
             }
         } label: {
             HStack(spacing: 10) {
-                selectionButton(for: group.segments.map(\.id))
-                Circle().fill(group.isIdle ? .gray : .green).frame(width: 8, height: 8)
+                if !isAssigned(group) {
+                    selectionButton(for: group.segments.map(\.id))
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(group.title).lineLimit(1)
                     Text(group.segments.count == 1
