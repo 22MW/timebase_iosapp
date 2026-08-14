@@ -18,6 +18,8 @@ repeat {
             print("Pestaña: \(tab.title)")
             print("Dominio: \(tab.domain ?? "—")")
             print("URL: \(tab.url?.absoluteString ?? "—")")
+        } else if let error = snapshot.browserError {
+            print("Navegador: \(error)")
         }
 
         let idleState = snapshot.isIdle ? "inactivo" : "activo"

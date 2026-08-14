@@ -11,7 +11,21 @@ struct FrontmostActivityReader {
         }
 
         let bundleIdentifier = application.bundleIdentifier
-        let tab = bundleIdentifier.flatMap(browserReader.activeTab(bundleIdentifier:))
+        let outcome = bundleIdentifier.map(browserReader.activeTab(bundleIdentifier:)) ?? .unsupported
+        let tab: BrowserTab?
+        let browserError: String?
+
+        switch outcome {
+        case .unsupported:
+            tab = nil
+            browserError = nil
+        case .success(let activeTab):
+            tab = activeTab
+            browserError = nil
+        case .failure(let message):
+            tab = nil
+            browserError = message
+        }
 
         return ActivitySnapshot(
             capturedAt: Date(),
@@ -19,6 +33,7 @@ struct FrontmostActivityReader {
             bundleIdentifier: bundleIdentifier,
             windowTitle: focusedWindowTitle(processIdentifier: application.processIdentifier),
             browserTab: tab,
+            browserError: browserError,
             idleSeconds: idleSeconds()
         )
     }

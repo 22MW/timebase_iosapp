@@ -2,24 +2,31 @@ import AppKit
 import Foundation
 
 struct AppleScriptBrowserReader {
-    func activeTab(bundleIdentifier: String) -> BrowserTab? {
+    func activeTab(bundleIdentifier: String) -> BrowserReadOutcome {
         guard let source = scriptSource(for: bundleIdentifier) else {
-            return nil
+            return .unsupported
         }
 
         var error: NSDictionary?
-        guard let result = NSAppleScript(source: source)?.executeAndReturnError(&error), error == nil else {
-            return nil
+        guard let script = NSAppleScript(source: source) else {
+            return .failure("No se pudo preparar el lector del navegador.")
+        }
+
+        let result = script.executeAndReturnError(&error)
+        if let error {
+            let number = error[NSAppleScript.errorNumber] ?? "—"
+            let message = error[NSAppleScript.errorMessage] ?? "Error desconocido"
+            return .failure("Apple Events \(number): \(message)")
         }
 
         let parts = result.stringValue?.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
         guard let parts, parts.count == 2 else {
-            return nil
+            return .failure("El navegador no devolvió título y URL.")
         }
 
         let title = String(parts[0])
         let url = URL(string: String(parts[1]))
-        return BrowserTab(title: title, url: url)
+        return .success(BrowserTab(title: title, url: url))
     }
 
     private func scriptSource(for bundleIdentifier: String) -> String? {
@@ -64,13 +71,12 @@ struct AppleScriptBrowserReader {
 
         case "company.thebrowser.Browser":
             return """
-            using terms from application "Brave Browser"
-                tell application id "company.thebrowser.Browser"
-                    if (count of windows) is 0 then return ""
-                    set selectedTab to active tab of front window
-                    return (title of selectedTab) & linefeed & (URL of selectedTab)
-                end tell
-            end using terms from
+            tell application "Arc"
+                if (count of windows) is 0 then return ""
+                set tabTitle to title of active tab of first window
+                set tabURL to URL of active tab of first window
+                return tabTitle & linefeed & tabURL
+            end tell
             """
 
         default:

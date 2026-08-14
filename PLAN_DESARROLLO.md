@@ -67,6 +67,9 @@ Ejemplo:
 - Búsqueda y filtros por aplicación, dominio, estado y proyecto.
 - Estados: pendiente, preparado, enviado e ignorado.
 - Posibilidad de borrar permanentemente cualquier actividad local.
+- Separar visualmente tres capas: actividad capturada, propuestas preparadas y registros ya enviados a Timebase.
+- Permitir aceptar, editar o descartar una propuesta sin alterar los segmentos originales.
+- Mostrar en cada propuesta su intervalo, duración, descripción y proyecto seleccionado.
 
 ### 3.4 Integración con Timebase
 
@@ -90,6 +93,15 @@ Ejemplo:
 - Plantillas de descripción.
 - Redondeo opcional de duración.
 - Recordatorio al final del día para revisar actividades pendientes.
+- Aprender de las correcciones repetidas para mejorar futuras sugerencias, sin enviar nada automáticamente.
+
+### 3.6 Vistas previstas
+
+- **Día:** vista principal para revisar actividades y convertirlas en propuestas.
+- **Timeline:** carriles superpuestos para actividad capturada, propuestas y registros enviados.
+- **Lista:** registros agrupados por día, proyecto y duración.
+- **Resumen:** tiempo total y distribución por aplicaciones y dominios.
+- Las vistas Lista y Resumen no bloquearán el MVP; se añadirán después de completar el flujo Día → Timebase.
 
 ## 4. Privacidad y permisos de macOS
 
@@ -253,3 +265,24 @@ Timebase API Client → Clientes / Proyectos / Registros de tiempo
 - Cada instalación tendrá una base local independiente y guardará su token de Timebase en su propio Llavero.
 - Los permisos de Accesibilidad y Automatización deberán concederse una vez en cada Mac.
 - La distribución final estará firmada y notarizada para evitar avisos de aplicación no identificada.
+
+## 14. Referencia funcional: AI Time Tracker
+
+Se ha estudiado visualmente AI Time Tracker de TimeCamp como referencia funcional, sin inspeccionar ni copiar su código.
+
+Ideas adoptadas:
+
+- Diferenciar actividad automática, propuestas revisables y tiempo confirmado.
+- Flujo explícito de aceptar, editar o rechazar cada propuesta.
+- Línea temporal con varias capas para entender de dónde sale cada registro.
+- Vista de lista por día y resumen por aplicaciones/sitios como fases posteriores.
+- Mantener siempre la revisión humana antes de confirmar tiempo.
+
+Decisiones propias de Timebase Activity:
+
+- Aplicación nativa en Swift en lugar de Electron.
+- Datos de actividad locales.
+- Agrupación determinista por dominio en el MVP; la asistencia inteligente llegará después.
+- Proyectos obtenidos directamente de Timebase.
+- Ninguna propuesta se enviará hasta elegir proyecto y confirmar.
+- La interfaz no copiará textos, disposición exacta, colores ni recursos gráficos de TimeCamp.

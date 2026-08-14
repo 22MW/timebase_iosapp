@@ -9,6 +9,12 @@ struct BrowserTab: Equatable {
     }
 }
 
+enum BrowserReadOutcome {
+    case unsupported
+    case success(BrowserTab)
+    case failure(String)
+}
+
 struct ActivitySnapshot: Equatable {
     static let idleThreshold: TimeInterval = 5 * 60
 
@@ -17,6 +23,7 @@ struct ActivitySnapshot: Equatable {
     let bundleIdentifier: String?
     let windowTitle: String?
     let browserTab: BrowserTab?
+    let browserError: String?
     let idleSeconds: TimeInterval
 
     var isIdle: Bool {
@@ -28,6 +35,7 @@ struct ActivitySnapshot: Equatable {
             && lhs.bundleIdentifier == rhs.bundleIdentifier
             && lhs.windowTitle == rhs.windowTitle
             && lhs.browserTab == rhs.browserTab
+            && lhs.browserError == rhs.browserError
             && lhs.isIdle == rhs.isIdle
     }
 }
