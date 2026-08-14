@@ -102,6 +102,9 @@ No se solicitará permiso de micrófono, cámara ni grabación de pantalla para 
 ## 5. Arquitectura propuesta
 
 - Aplicación nativa: Swift y SwiftUI.
+- Objetivo de despliegue inicial: macOS 14 Sonoma o posterior.
+- Arquitectura inicial: Apple Silicon (`arm64`), compatible con las generaciones M1, M2, M3 y M4.
+- La captura y la integración con navegadores no dependerán del nombre, número de serie ni configuración de un Mac concreto.
 - Icono y controles rápidos en la barra de menús.
 - Persistencia local: SQLite mediante SwiftData o una capa SQLite explícita.
 - Captura: NSWorkspace, APIs de accesibilidad y Apple Events.
@@ -185,11 +188,15 @@ Timebase API Client → Clientes / Proyectos / Registros de tiempo
 - Plantillas y redondeo.
 - Inicio automático, exportación local y recuperación ante fallos.
 - Pruebas prolongadas de batería, memoria y estabilidad.
+- Matriz de pruebas en varias versiones de macOS y generaciones de Apple Silicon.
+- Pruebas de actualización de macOS conservando permisos, preferencias y base de datos local.
 
 ### Fase 5 — Distribución
 
 - Icono, nombre definitivo y pantalla de permisos.
 - Firma y notarización de Apple si se distribuirá a otros Macs.
+- Paquete instalable para otros Macs sin necesidad de Xcode.
+- Primera ejecución guiada para conceder Accesibilidad y Automatización en cada equipo.
 - Instalador y sistema de actualización propio de la aplicación.
 
 ## 8. Criterios de aceptación del MVP
@@ -204,12 +211,14 @@ Timebase API Client → Clientes / Proyectos / Registros de tiempo
 - Un segmento enviado no puede reenviarse accidentalmente.
 - Actualizar Timebase no afecta al capturador ni elimina sus datos.
 - Pausar el seguimiento impide cualquier nueva captura.
+- La misma compilación puede instalarse en varios Macs compatibles sin cambios en el código.
+- Cada Mac mantiene su propia actividad, permisos, preferencias y credenciales locales.
 
 ## 9. Decisiones pendientes antes de programar
 
 1. Umbral de inactividad deseado.
 2. Si los periodos inactivos se eliminan o se muestran para revisión.
-3. Si la aplicación será solo para este Mac o se distribuirá a más usuarios.
+3. Si también se necesita compatibilidad con Macs Intel además de Apple Silicon.
 
 ## 10. Equipo inicial
 
@@ -231,3 +240,12 @@ Timebase API Client → Clientes / Proyectos / Registros de tiempo
 - `dev`: integración del trabajo en desarrollo.
 - Las nuevas funcionalidades se prepararán en ramas cortas cuando sea necesario y se integrarán primero en `dev`.
 - `main` recibirá únicamente versiones revisadas desde `dev`.
+
+## 13. Compatibilidad y distribución
+
+- La aplicación se diseñará para varios equipos, no exclusivamente para el Mac de desarrollo.
+- Compatibilidad inicial prevista: macOS 14 Sonoma, macOS 15 Sequoia y macOS 26 Tahoe o posteriores compatibles.
+- Hardware inicial: Macs con Apple Silicon M1, M2, M3 y M4.
+- Cada instalación tendrá una base local independiente y guardará su token de Timebase en su propio Llavero.
+- Los permisos de Accesibilidad y Automatización deberán concederse una vez en cada Mac.
+- La distribución final estará firmada y notarizada para evitar avisos de aplicación no identificada.
