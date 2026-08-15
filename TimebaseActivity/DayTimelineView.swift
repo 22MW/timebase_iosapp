@@ -142,24 +142,29 @@ struct DayTimelineView: View {
                 Label(project, systemImage: "folder.fill").foregroundStyle(.secondary)
             }
             Divider()
-            ForEach(block.segments) { segment in
-                HStack(alignment: .top, spacing: 8) {
-                    Button { toggle([segment.id]) } label: {
-                        Image(systemName: block.assigned ? "lock.fill" : (selectedSegmentIDs.contains(segment.id) ? "checkmark.circle.fill" : "circle"))
-                            .foregroundStyle(block.assigned ? .white : (selectedSegmentIDs.contains(segment.id) ? .blue : .green))
-                    }.buttonStyle(.plain).disabled(block.assigned)
-                    Text(time(segment.startedAt)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(segment.tabTitle ?? segment.windowTitle ?? "Sin título")
-                            .font(.caption).lineLimit(2)
-                        if let url = segment.url?.absoluteString {
-                            Text(url).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            ScrollView(.vertical) {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(block.segments) { segment in
+                        HStack(alignment: .top, spacing: 8) {
+                            Button { toggle([segment.id]) } label: {
+                                Image(systemName: block.assigned ? "lock.fill" : (selectedSegmentIDs.contains(segment.id) ? "checkmark.circle.fill" : "circle"))
+                                    .foregroundStyle(block.assigned ? .white : (selectedSegmentIDs.contains(segment.id) ? .blue : .green))
+                            }.buttonStyle(.plain).disabled(block.assigned)
+                            Text(time(segment.startedAt)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(segment.tabTitle ?? segment.windowTitle ?? "Sin título")
+                                    .font(.caption).lineLimit(2)
+                                if let url = segment.url?.absoluteString {
+                                    Text(url).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                            }
+                            Spacer()
+                            Text(duration(segment.duration)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                         }
                     }
-                    Spacer()
-                    Text(duration(segment.duration)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
             }
+            .frame(maxHeight: 380)
         }
     }
 
