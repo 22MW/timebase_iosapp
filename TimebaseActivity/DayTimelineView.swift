@@ -16,7 +16,7 @@ struct DayTimelineView: View {
     let date: Date
     @Binding var selectedSegmentIDs: Set<UUID>
     @State private var hoveredID: UUID?
-    @State private var itemWidth = 175.0
+    @State private var hourSpacing = 90.0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -31,9 +31,9 @@ struct DayTimelineView: View {
             }
             HStack(spacing: 9) {
                 Image(systemName: "rectangle.compress.vertical")
-                Slider(value: $itemWidth, in: 110...280, step: 10).frame(width: 180)
+                Slider(value: $hourSpacing, in: 60...240, step: 10).frame(width: 180)
                 Image(systemName: "rectangle.expand.vertical")
-                Text("Tamaño").font(.caption).foregroundStyle(.secondary)
+                Text("Espacio entre horas").font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth: .infinity, alignment: .trailing)
 
             if blocks.isEmpty {
@@ -64,7 +64,7 @@ struct DayTimelineView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Divider()
                 LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: itemWidth, maximum: itemWidth * 1.35), spacing: 8)],
+                    columns: [GridItem(.adaptive(minimum: 165, maximum: 225), spacing: 8)],
                     alignment: .leading,
                     spacing: 8
                 ) {
@@ -72,6 +72,7 @@ struct DayTimelineView: View {
                         compactItem(block)
                     }
                 }
+                .frame(minHeight: hourSpacing, alignment: .top)
             }
         }.padding(.bottom, 16)
     }
