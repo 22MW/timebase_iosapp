@@ -31,6 +31,7 @@ private struct ProjectsResponse: Decodable {
 
 enum TimebaseAPIError: LocalizedError {
     case missingToken
+    case keychain(OSStatus)
     case invalidURL
     case invalidResponse
     case server(Int, String?)
@@ -39,6 +40,9 @@ enum TimebaseAPIError: LocalizedError {
         switch self {
         case .missingToken:
             return "No se encontró el token de Timebase en el Llavero."
+        case .keychain(let status):
+            let message = SecCopyErrorMessageString(status, nil) as String? ?? "código \(status)"
+            return "El Llavero no permitió acceder al token: \(message)."
         case .invalidURL:
             return "La dirección de Timebase no es válida."
         case .invalidResponse:
@@ -128,17 +132,50 @@ struct TimebaseAPIClient {
             kSecAttrService: keychainService,
             kSecAttrAccount: keychainAccount,
             kSecReturnData: true,
-            kSecMatchLimit: kSecMatchLimitOne
+            kSecMatchLimit: kSecMatchLimitOne,
+            kSecUseAuthenticationUI: kSecUseAuthenticationUIAllow,
+            kSecUseOperationPrompt: "Permite que Timebase Activity use tu token de Timebase."
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess,
-              let data = item as? Data,
-              let value = String(data: data, encoding: .utf8),
-              !value.isEmpty else {
+        if status == errSecSuccess,
+           let data = item as? Data,
+           let value = String(data: data, encoding: .utf8),
+           !value.isEmpty {
+            return value
+        }
+
+        if let value = tokenUsingSecurityTool() {
+            return value
+        }
+        if status == errSecItemNotFound {
             throw TimebaseAPIError.missingToken
         }
-        return value
+        throw TimebaseAPIError.keychain(status)
+    }
+
+    private func tokenUsingSecurityTool() -> String? {
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        process.arguments = [
+            "find-generic-password", "-w",
+            "-a", keychainAccount,
+            "-s", keychainService
+        ]
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return nil }
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            let value = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return value?.isEmpty == false ? value : nil
+        } catch {
+            return nil
+        }
     }
 }
 
