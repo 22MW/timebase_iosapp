@@ -347,6 +347,9 @@ struct ActivityDetailView: View {
                 if !isAssigned(group) {
                     selectionButton(for: group.segments.map(\.id))
                 }
+                Circle()
+                    .fill(group.isIdle ? .gray : .green)
+                    .frame(width: 8, height: 8)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(group.title).lineLimit(1)
                     Text(group.segments.count == 1
