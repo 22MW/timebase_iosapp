@@ -25,7 +25,7 @@ struct DayTimelineView: View {
     @Binding var selectedSegmentIDs: Set<UUID>
     @State private var detailBlockID: UUID?
 
-    private let hourLabelWidth: CGFloat = 58
+    private let hourLabelWidth: CGFloat = 72
     private let laneWidth: CGFloat = 190
     private let pointsPerHour: CGFloat = 120
 
@@ -70,11 +70,17 @@ struct DayTimelineView: View {
     private func hourGrid(width: CGFloat) -> some View {
         ForEach(startHour...endHour, id: \.self) { hour in
             let y = CGFloat(hour - startHour) * pointsPerHour
-            HStack(spacing: 10) {
+            ZStack(alignment: .leading) {
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.38))
+                    .frame(width: width, height: 1)
                 Text(String(format: "%02d:00", hour))
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                    .frame(width: hourLabelWidth, alignment: .trailing)
-                Divider().frame(height: 1).overlay(.secondary.opacity(0.3))
+                    .font(.callout.monospacedDigit())
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 6)
+                    .background(.background)
+                    .frame(width: hourLabelWidth, alignment: .leading)
             }
             .frame(width: width)
             .offset(y: y)
