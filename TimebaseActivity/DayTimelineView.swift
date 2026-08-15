@@ -93,8 +93,7 @@ struct DayTimelineView: View {
         return HStack(alignment: .top, spacing: 7) {
             Button { toggle(item.block.ids) } label: {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(color.opacity(item.block.assigned ? 0.3 : 0.55))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.9)))
+                    .fill(color.opacity(item.block.assigned ? 0.9 : 0.85))
                     .frame(width: 8, height: item.height)
             }
             .buttonStyle(.plain)
