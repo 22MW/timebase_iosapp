@@ -24,10 +24,12 @@ struct DayTimelineView: View {
     let date: Date
     @Binding var selectedSegmentIDs: Set<UUID>
     @State private var detailBlockID: UUID?
+    @State private var zoom = 1.0
 
     private let hourLabelWidth: CGFloat = 72
     private let laneWidth: CGFloat = 190
-    private let pointsPerHour: CGFloat = 120
+    private var pointsPerHour: CGFloat { 120 * CGFloat(zoom) }
+    private var titleSize: CGFloat { 11 + CGFloat(max(0, zoom - 1)) * 2 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -64,6 +66,14 @@ struct DayTimelineView: View {
                     Label("Asignado", systemImage: "circle.fill").foregroundStyle(.white)
                 }.font(.caption)
             }
+            HStack(spacing: 9) {
+                Image(systemName: "minus.magnifyingglass")
+                Slider(value: $zoom, in: 0.75...2.0, step: 0.05)
+                    .frame(width: 190)
+                Image(systemName: "plus.magnifyingglass")
+                Text("Zoom").font(.caption).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 
@@ -91,20 +101,24 @@ struct DayTimelineView: View {
         let selected = allSelected(item.block)
         let color: Color = item.block.assigned ? .white : (selected ? .blue : .green)
         return HStack(alignment: .top, spacing: 7) {
-            Button { toggle(item.block.ids) } label: {
+            Button {
+                if !item.block.assigned { toggle(item.block.ids) }
+            } label: {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(color.opacity(item.block.assigned ? 0.9 : 0.85))
                     .frame(width: 8, height: item.height)
             }
             .buttonStyle(.plain)
-            .disabled(item.block.assigned)
 
             Button {
                 detailBlockID = item.block.id
             } label: {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(item.block.app).font(.caption.bold()).lineLimit(1)
-                    Text(primaryTitle(item.block)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    Text(item.block.app)
+                        .font(.system(size: titleSize, weight: .bold)).lineLimit(1)
+                    Text(primaryTitle(item.block))
+                        .font(.system(size: max(9, titleSize - 2)))
+                        .foregroundStyle(.secondary).lineLimit(1)
                 }
                 .frame(width: laneWidth - 32, alignment: .leading)
                 .contentShape(Rectangle())
