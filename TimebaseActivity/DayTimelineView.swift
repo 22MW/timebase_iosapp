@@ -23,11 +23,11 @@ struct DayTimelineView: View {
     @ObservedObject var activityStore: ActivityStore
     let date: Date
     @Binding var selectedSegmentIDs: Set<UUID>
-    @State private var pointsPerHour = 120.0
     @State private var detailBlockID: UUID?
 
     private let hourLabelWidth: CGFloat = 58
     private let laneWidth: CGFloat = 190
+    private let pointsPerHour: CGFloat = 120
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -64,18 +64,12 @@ struct DayTimelineView: View {
                     Label("Asignado", systemImage: "circle.fill").foregroundStyle(.white)
                 }.font(.caption)
             }
-            HStack(spacing: 9) {
-                Image(systemName: "minus.magnifyingglass")
-                Slider(value: $pointsPerHour, in: 70...260, step: 10).frame(width: 190)
-                Image(systemName: "plus.magnifyingglass")
-                Text("Zoom temporal").font(.caption).foregroundStyle(.secondary)
-            }.frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 
     private func hourGrid(width: CGFloat) -> some View {
         ForEach(startHour...endHour, id: \.self) { hour in
-            let y = CGFloat(hour - startHour) * CGFloat(pointsPerHour)
+            let y = CGFloat(hour - startHour) * pointsPerHour
             HStack(spacing: 10) {
                 Text(String(format: "%02d:00", hour))
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
@@ -195,7 +189,7 @@ struct DayTimelineView: View {
         var laneEnds: [CGFloat] = []
         return blocks.map { block in
             let y = yPosition(block.start)
-            let naturalHeight = CGFloat(max(1, block.duration)) / 3600 * CGFloat(pointsPerHour)
+            let naturalHeight = CGFloat(max(1, block.duration)) / 3600 * pointsPerHour
             let height = max(18, naturalHeight)
             let lane = laneEnds.firstIndex(where: { $0 + 5 <= y }) ?? laneEnds.count
             if lane == laneEnds.count { laneEnds.append(y + height) } else { laneEnds[lane] = y + height }
@@ -205,7 +199,7 @@ struct DayTimelineView: View {
 
     private var laneCount: Int { (positionedBlocks.map(\.lane).max() ?? 0) + 1 }
     private var contentWidth: CGFloat { hourLabelWidth + 32 + CGFloat(laneCount) * laneWidth }
-    private var timelineHeight: CGFloat { CGFloat(endHour - startHour + 1) * CGFloat(pointsPerHour) }
+    private var timelineHeight: CGFloat { CGFloat(endHour - startHour + 1) * pointsPerHour }
     private var startHour: Int { max(0, (segments.map { Calendar.current.component(.hour, from: $0.startedAt) }.min() ?? 0) - 1) }
     private var endHour: Int { min(24, (segments.map { Calendar.current.component(.hour, from: $0.endedAt) }.max() ?? 23) + 2) }
 
@@ -213,7 +207,7 @@ struct DayTimelineView: View {
         let parts = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
         let hours = CGFloat((parts.hour ?? 0) - startHour)
         let fraction = CGFloat(parts.minute ?? 0) / 60 + CGFloat(parts.second ?? 0) / 3600
-        return (hours + fraction) * CGFloat(pointsPerHour)
+        return (hours + fraction) * pointsPerHour
     }
 
     private func primaryTitle(_ block: Block) -> String {
