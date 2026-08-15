@@ -29,7 +29,7 @@ struct DayTimelineView: View {
     private let hourLabelWidth: CGFloat = 72
     private let laneWidth: CGFloat = 190
     private var pointsPerHour: CGFloat { 120 * CGFloat(zoom) }
-    private var titleSize: CGFloat { 11 + CGFloat(max(0, zoom - 1)) * 2 }
+    private var titleSize: CGFloat { min(14, 11 + CGFloat(max(0, zoom - 1))) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -68,7 +68,7 @@ struct DayTimelineView: View {
             }
             HStack(spacing: 9) {
                 Image(systemName: "minus.magnifyingglass")
-                Slider(value: $zoom, in: 0.75...2.0, step: 0.05)
+                Slider(value: $zoom, in: 0.75...4.0, step: 0.05)
                     .frame(width: 190)
                 Image(systemName: "plus.magnifyingglass")
                 Text("Zoom").font(.caption).foregroundStyle(.secondary)
