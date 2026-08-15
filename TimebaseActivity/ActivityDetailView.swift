@@ -104,8 +104,6 @@ struct ActivityDetailView: View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Timebase Activity").font(.title2.bold())
-                Text("Historial local · todavía no se envía nada a Timebase")
-                    .foregroundStyle(.secondary)
             }
             Spacer()
             Button(monitor.isPaused ? "Reanudar" : "Pausar") { monitor.togglePause() }
