@@ -12,14 +12,45 @@ struct DayTimelineView: View {
         var ids: [UUID] { segments.map(\.id) }
     }
 
+    private struct PositionedBlock: Identifiable {
+        let block: Block
+        let lane: Int
+        let y: CGFloat
+        let height: CGFloat
+        var id: UUID { block.id }
+    }
+
     @ObservedObject var activityStore: ActivityStore
     let date: Date
     @Binding var selectedSegmentIDs: Set<UUID>
-    @State private var hoveredID: UUID?
-    @State private var hourSpacing = 90.0
+    @State private var pointsPerHour = 120.0
+    @State private var detailBlockID: UUID?
+
+    private let hourLabelWidth: CGFloat = 58
+    private let laneWidth: CGFloat = 190
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            header
+            if blocks.isEmpty {
+                ContentUnavailableView("No hay actividad este día", systemImage: "calendar")
+            } else {
+                GeometryReader { proxy in
+                    ScrollView([.vertical, .horizontal]) {
+                        ZStack(alignment: .topLeading) {
+                            hourGrid(width: max(proxy.size.width, contentWidth))
+                            ForEach(positionedBlocks) { item in timelineItem(item) }
+                        }
+                        .frame(width: max(proxy.size.width, contentWidth), height: timelineHeight, alignment: .topLeading)
+                    }
+                }
+                .frame(minHeight: 430, maxHeight: 680)
+            }
+        }
+    }
+
+    private var header: some View {
+        VStack(spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Vista por horas").font(.headline)
@@ -27,106 +58,83 @@ struct DayTimelineView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                legend
+                HStack(spacing: 14) {
+                    Label("Pendiente", systemImage: "circle.fill").foregroundStyle(.green)
+                    Label("Seleccionado", systemImage: "circle.fill").foregroundStyle(.blue)
+                    Label("Asignado", systemImage: "circle.fill").foregroundStyle(.white)
+                }.font(.caption)
             }
             HStack(spacing: 9) {
-                Image(systemName: "rectangle.compress.vertical")
-                Slider(value: $hourSpacing, in: 60...240, step: 10).frame(width: 180)
-                Image(systemName: "rectangle.expand.vertical")
-                Text("Espacio entre horas").font(.caption).foregroundStyle(.secondary)
+                Image(systemName: "minus.magnifyingglass")
+                Slider(value: $pointsPerHour, in: 70...260, step: 10).frame(width: 190)
+                Image(systemName: "plus.magnifyingglass")
+                Text("Zoom temporal").font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth: .infinity, alignment: .trailing)
-
-            if blocks.isEmpty {
-                ContentUnavailableView("No hay actividad este día", systemImage: "calendar")
-            } else {
-                ScrollView(.vertical) {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(hours, id: \.self) { hour in hourRow(hour) }
-                    }
-                }.frame(minHeight: 380, maxHeight: 650)
-            }
         }
     }
 
-    private var legend: some View {
-        HStack(spacing: 14) {
-            Label("Pendiente", systemImage: "circle.fill").foregroundStyle(.green)
-            Label("Seleccionado", systemImage: "circle.fill").foregroundStyle(.blue)
-            Label("Asignado", systemImage: "circle.fill").foregroundStyle(.white)
-        }.font(.caption)
-    }
-
-    private func hourRow(_ hour: Int) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Text(String(format: "%02d:00", hour))
-                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                .frame(width: 50, alignment: .trailing).padding(.top, 12)
-            VStack(alignment: .leading, spacing: 8) {
-                Divider()
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 165, maximum: 225), spacing: 8)],
-                    alignment: .leading,
-                    spacing: 8
-                ) {
-                    ForEach(hourBlocks(hour)) { block in
-                        compactItem(block)
-                    }
-                }
-                .frame(minHeight: hourSpacing, alignment: .top)
+    private func hourGrid(width: CGFloat) -> some View {
+        ForEach(startHour...endHour, id: \.self) { hour in
+            let y = CGFloat(hour - startHour) * CGFloat(pointsPerHour)
+            HStack(spacing: 10) {
+                Text(String(format: "%02d:00", hour))
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    .frame(width: hourLabelWidth, alignment: .trailing)
+                Divider().frame(height: 1).overlay(.secondary.opacity(0.3))
             }
-        }.padding(.bottom, 16)
+            .frame(width: width)
+            .offset(y: y)
+        }
     }
 
-    private func hourBlocks(_ hour: Int) -> [Block] {
-        blocks.filter { Calendar.current.component(.hour, from: $0.start) == hour }
-    }
+    private func timelineItem(_ item: PositionedBlock) -> some View {
+        let selected = allSelected(item.block)
+        let color: Color = item.block.assigned ? .white : (selected ? .blue : .green)
+        return HStack(alignment: .top, spacing: 7) {
+            Button { toggle(item.block.ids) } label: {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(color.opacity(item.block.assigned ? 0.3 : 0.55))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.9)))
+                    .frame(width: 18, height: item.height)
+            }
+            .buttonStyle(.plain)
+            .disabled(item.block.assigned)
 
-    private func compactItem(_ block: Block) -> some View {
-        let selected = !block.assigned && block.ids.allSatisfy(selectedSegmentIDs.contains)
-        let color: Color = block.assigned ? .white : (selected ? .blue : .green)
-        return Button {
-            guard !block.assigned else { return }
-            if selected { selectedSegmentIDs.subtract(block.ids) }
-            else { selectedSegmentIDs.formUnion(block.ids) }
-        } label: {
-            HStack(spacing: 6) {
-                Circle().fill(color).frame(width: 8, height: 8)
+            Button {
+                detailBlockID = item.block.id
+            } label: {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(block.app).font(.caption.bold()).lineLimit(1)
-                    Text("\(time(block.start)) · \(duration(block.duration))")
-                        .font(.caption2.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                    Text(item.block.app).font(.caption.bold()).lineLimit(1)
+                    Text(primaryTitle(item.block)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
-                Spacer(minLength: 2)
-                if selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(.blue) }
+                .frame(width: laneWidth - 32, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 8).frame(height: 38, alignment: .leading)
-            .background(color.opacity(block.assigned ? 0.08 : 0.12), in: RoundedRectangle(cornerRadius: 7))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(color.opacity(0.45)))
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .popover(isPresented: detailBinding(item.block.id), arrowEdge: .leading) {
+                detail(item.block).padding(16).frame(width: 430)
+            }
         }
-        .buttonStyle(.plain).disabled(block.assigned)
-        .popover(isPresented: hoverBinding(block.id), arrowEdge: .leading) {
-            details(block).padding(16).frame(width: 390)
-        }
-        .onHover { over in hoveredID = over ? block.id : (hoveredID == block.id ? nil : hoveredID) }
+        .offset(
+            x: hourLabelWidth + 22 + CGFloat(item.lane) * laneWidth,
+            y: item.y
+        )
     }
 
-    private func hoverBinding(_ id: UUID) -> Binding<Bool> {
-        Binding(get: { hoveredID == id }, set: { if !$0 && hoveredID == id { hoveredID = nil } })
+    private func detailBinding(_ id: UUID) -> Binding<Bool> {
+        Binding(get: { detailBlockID == id }, set: { if !$0 && detailBlockID == id { detailBlockID = nil } })
     }
 
-    private func details(_ block: Block) -> some View {
+    private func detail(_ block: Block) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(block.app).font(.headline)
                 Spacer()
-                if !block.assigned {
-                    Button(allSelected(block) ? "Quitar todas" : "Seleccionar todas") {
-                        toggle(block.ids)
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else {
+                if block.assigned {
                     Label("Asignado", systemImage: "lock.fill").foregroundStyle(.secondary)
+                } else {
+                    Button(allSelected(block) ? "Quitar todas" : "Seleccionar todas") { toggle(block.ids) }
+                        .buttonStyle(.borderedProminent)
                 }
             }
             Text("\(time(block.start))–\(time(block.end)) · \(duration(block.duration))")
@@ -135,24 +143,17 @@ struct DayTimelineView: View {
                 Label(project, systemImage: "folder.fill").foregroundStyle(.secondary)
             }
             Divider()
-            ForEach(block.segments.prefix(12)) { segment in
-                HStack(alignment: .top) {
-                    Button {
-                        toggle([segment.id])
-                    } label: {
+            ForEach(block.segments) { segment in
+                HStack(alignment: .top, spacing: 8) {
+                    Button { toggle([segment.id]) } label: {
                         Image(systemName: block.assigned ? "lock.fill" : (selectedSegmentIDs.contains(segment.id) ? "checkmark.circle.fill" : "circle"))
                             .foregroundStyle(block.assigned ? .white : (selectedSegmentIDs.contains(segment.id) ? .blue : .green))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(block.assigned)
+                    }.buttonStyle(.plain).disabled(block.assigned)
                     Text(time(segment.startedAt)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     Text(segment.tabTitle ?? segment.windowTitle ?? "Sin título").font(.caption).lineLimit(2)
                     Spacer()
                     Text(duration(segment.duration)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
-            }
-            if block.segments.count > 12 {
-                Text("Y \(block.segments.count - 12) actividades más…").font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -172,21 +173,51 @@ struct DayTimelineView: View {
         let assignedIDs = activityStore.assignedSegmentIDs
         return segments.reduce(into: [Block]()) { result, segment in
             let assigned = assignedIDs.contains(segment.id)
-            if let index = result.indices.reversed().first(where: {
-                result[$0].segments.last?.bundleIdentifier == segment.bundleIdentifier
-                    && result[$0].assigned == assigned
-                    && segment.startedAt.timeIntervalSince(result[$0].end) <= 5 * 60
-            }) {
-                result[index].segments.append(segment)
+            if let last = result.indices.last,
+               result[last].assigned == assigned,
+               sameContinuousActivity(result[last].segments.last, segment),
+               segment.startedAt.timeIntervalSince(result[last].end) <= 5 {
+                result[last].segments.append(segment)
             } else {
                 result.append(Block(id: segment.id, segments: [segment], assigned: assigned))
             }
         }
-        .sorted { $0.start < $1.start }
     }
 
-    private var hours: [Int] {
-        Array(Set(blocks.map { Calendar.current.component(.hour, from: $0.start) })).sorted()
+    private func sameContinuousActivity(_ previous: ActivitySegment?, _ next: ActivitySegment) -> Bool {
+        guard let previous else { return false }
+        return previous.bundleIdentifier == next.bundleIdentifier
+            && previous.tabTitle == next.tabTitle
+            && previous.windowTitle == next.windowTitle
+    }
+
+    private var positionedBlocks: [PositionedBlock] {
+        var laneEnds: [CGFloat] = []
+        return blocks.map { block in
+            let y = yPosition(block.start)
+            let naturalHeight = CGFloat(max(1, block.end.timeIntervalSince(block.start))) / 3600 * CGFloat(pointsPerHour)
+            let height = max(18, naturalHeight)
+            let lane = laneEnds.firstIndex(where: { $0 + 5 <= y }) ?? laneEnds.count
+            if lane == laneEnds.count { laneEnds.append(y + height) } else { laneEnds[lane] = y + height }
+            return PositionedBlock(block: block, lane: lane, y: y, height: height)
+        }
+    }
+
+    private var laneCount: Int { (positionedBlocks.map(\.lane).max() ?? 0) + 1 }
+    private var contentWidth: CGFloat { hourLabelWidth + 32 + CGFloat(laneCount) * laneWidth }
+    private var timelineHeight: CGFloat { CGFloat(endHour - startHour + 1) * CGFloat(pointsPerHour) }
+    private var startHour: Int { max(0, (segments.map { Calendar.current.component(.hour, from: $0.startedAt) }.min() ?? 0) - 1) }
+    private var endHour: Int { min(24, (segments.map { Calendar.current.component(.hour, from: $0.endedAt) }.max() ?? 23) + 2) }
+
+    private func yPosition(_ date: Date) -> CGFloat {
+        let parts = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
+        let hours = CGFloat((parts.hour ?? 0) - startHour)
+        let fraction = CGFloat(parts.minute ?? 0) / 60 + CGFloat(parts.second ?? 0) / 3600
+        return (hours + fraction) * CGFloat(pointsPerHour)
+    }
+
+    private func primaryTitle(_ block: Block) -> String {
+        block.segments.first?.tabTitle ?? block.segments.first?.windowTitle ?? "Sin título"
     }
 
     private func assignment(_ block: Block) -> String? {
@@ -199,7 +230,6 @@ struct DayTimelineView: View {
         return text.isEmpty ? nil : text
     }
 
-    private func time(_ date: Date) -> String { date.formatted(date: .omitted, time: .shortened) }
     private func allSelected(_ block: Block) -> Bool {
         !block.ids.isEmpty && block.ids.allSatisfy(selectedSegmentIDs.contains)
     }
@@ -213,6 +243,7 @@ struct DayTimelineView: View {
         }
     }
 
+    private func time(_ date: Date) -> String { date.formatted(date: .omitted, time: .shortened) }
     private func duration(_ interval: TimeInterval) -> String {
         let seconds = Int(interval.rounded(.down)), hours = seconds / 3600, minutes = seconds % 3600 / 60
         if hours > 0 { return "\(hours) h \(minutes) min" }
