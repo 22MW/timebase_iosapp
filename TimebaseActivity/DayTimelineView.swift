@@ -12,19 +12,11 @@ struct DayTimelineView: View {
         var ids: [UUID] { segments.map(\.id) }
     }
 
-    private struct Placement: Identifiable {
-        let block: Block
-        let x: CGFloat
-        let slotWidth: CGFloat
-        let markerWidth: CGFloat
-        var id: UUID { block.id }
-    }
-
     @ObservedObject var activityStore: ActivityStore
     let date: Date
     @Binding var selectedSegmentIDs: Set<UUID>
     @State private var hoveredID: UUID?
-    @State private var zoom = 1.0
+    @State private var itemWidth = 175.0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -39,7 +31,7 @@ struct DayTimelineView: View {
             }
             HStack(spacing: 9) {
                 Image(systemName: "rectangle.compress.vertical")
-                Slider(value: $zoom, in: 0.75...2.0, step: 0.05).frame(width: 180)
+                Slider(value: $itemWidth, in: 110...280, step: 10).frame(width: 180)
                 Image(systemName: "rectangle.expand.vertical")
                 Text("Tamaño").font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth: .infinity, alignment: .trailing)
@@ -69,45 +61,26 @@ struct DayTimelineView: View {
             Text(String(format: "%02d:00", hour))
                 .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 .frame(width: 50, alignment: .trailing).padding(.top, 12)
-            GeometryReader { proxy in
-                let placements = placements(for: hour, availableWidth: proxy.size.width)
-                ZStack(alignment: .topLeading) {
-                    Divider().offset(y: 5)
-                    ForEach(placements) { placement in
-                        compactItem(placement.block, markerWidth: placement.markerWidth)
-                            .frame(width: placement.slotWidth, alignment: .leading)
-                            .offset(x: placement.x, y: 15)
+            VStack(alignment: .leading, spacing: 8) {
+                Divider()
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: itemWidth, maximum: itemWidth * 1.35), spacing: 8)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    ForEach(hourBlocks(hour)) { block in
+                        compactItem(block)
                     }
                 }
-                .frame(height: 50)
             }
-            .frame(height: 50)
         }.padding(.bottom, 16)
     }
 
-    private func placements(for hour: Int, availableWidth: CGFloat) -> [Placement] {
-        let hourBlocks = blocks.filter { Calendar.current.component(.hour, from: $0.start) == hour }
-        return hourBlocks.enumerated().map { index, block in
-            let minute = Calendar.current.component(.minute, from: block.start)
-            let second = Calendar.current.component(.second, from: block.start)
-            let x = min(availableWidth - 12, (CGFloat(minute) + CGFloat(second) / 60) / 60 * availableWidth)
-            let nextX: CGFloat
-            if index + 1 < hourBlocks.count {
-                let next = hourBlocks[index + 1].start
-                let nextMinute = Calendar.current.component(.minute, from: next)
-                let nextSecond = Calendar.current.component(.second, from: next)
-                nextX = (CGFloat(nextMinute) + CGFloat(nextSecond) / 60) / 60 * availableWidth
-            } else {
-                nextX = availableWidth
-            }
-            let slotWidth = max(12, nextX - x - 4)
-            let natural = CGFloat(max(1, block.end.timeIntervalSince(block.start))) / 3600 * availableWidth
-            let markerWidth = min(slotWidth, max(10, natural * CGFloat(zoom)))
-            return Placement(block: block, x: x, slotWidth: slotWidth, markerWidth: markerWidth)
-        }
+    private func hourBlocks(_ hour: Int) -> [Block] {
+        blocks.filter { Calendar.current.component(.hour, from: $0.start) == hour }
     }
 
-    private func compactItem(_ block: Block, markerWidth: CGFloat) -> some View {
+    private func compactItem(_ block: Block) -> some View {
         let selected = !block.assigned && block.ids.allSatisfy(selectedSegmentIDs.contains)
         let color: Color = block.assigned ? .white : (selected ? .blue : .green)
         return Button {
@@ -116,14 +89,19 @@ struct DayTimelineView: View {
             else { selectedSegmentIDs.formUnion(block.ids) }
         } label: {
             HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(color.opacity(block.assigned ? 0.3 : 0.45))
-                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(color.opacity(0.8)))
-                    .frame(width: markerWidth, height: 18)
-                Text(block.app).font(.caption.bold()).lineLimit(1)
-                    .foregroundStyle(block.assigned ? .secondary : .primary)
+                Circle().fill(color).frame(width: 8, height: 8)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(block.app).font(.caption.bold()).lineLimit(1)
+                    Text("\(time(block.start)) · \(duration(block.duration))")
+                        .font(.caption2.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 2)
+                if selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(.blue) }
             }
-            .frame(height: 24, alignment: .leading).contentShape(Rectangle())
+            .padding(.horizontal, 8).frame(height: 38, alignment: .leading)
+            .background(color.opacity(block.assigned ? 0.08 : 0.12), in: RoundedRectangle(cornerRadius: 7))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(color.opacity(0.45)))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain).disabled(block.assigned)
         .popover(isPresented: hoverBinding(block.id), arrowEdge: .leading) {
