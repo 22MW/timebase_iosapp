@@ -42,11 +42,12 @@ struct ActivitySegment: Codable, Identifiable, Equatable {
 struct ActivityGroup: Identifiable {
     let id: UUID
     var segments: [ActivitySegment]
+    var displayTitle: String? = nil
 
     var domain: String? { segments.first?.domain }
     var applicationName: String { segments.first?.applicationName ?? "Aplicación desconocida" }
     var isIdle: Bool { segments.first?.isIdle ?? false }
-    var title: String { domain ?? applicationName }
+    var title: String { displayTitle ?? domain ?? applicationName }
     var startedAt: Date { segments.first?.startedAt ?? .distantPast }
     var endedAt: Date { segments.last?.endedAt ?? startedAt }
     var duration: TimeInterval { segments.reduce(0) { $0 + $1.duration } }

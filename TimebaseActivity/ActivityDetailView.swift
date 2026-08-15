@@ -45,7 +45,7 @@ struct ActivityDetailView: View {
     @State private var period = "Hoy"
     @State private var rangeStart = Calendar.current.startOfDay(for: Date())
     @State private var rangeEnd = Calendar.current.startOfDay(for: Date())
-    @State private var viewMode = ViewMode.timeline
+    @State private var viewMode = ViewMode.day
     @State private var activityKind = ActivityKind.all
     @State private var activityStatus = ActivityStatus.all
     @State private var sortMode = SortMode.time
@@ -348,7 +348,7 @@ struct ActivityDetailView: View {
                     selectionButton(for: group.segments.map(\.id))
                 }
                 Circle()
-                    .fill(group.isIdle ? .gray : .green)
+                    .fill(statusColor(for: group))
                     .frame(width: 8, height: 8)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(group.title).lineLimit(1)
@@ -430,7 +430,7 @@ struct ActivityDetailView: View {
         } else if viewMode == .selection {
             groups = selectedPendingGroups + assignedReferenceGroups
         } else if viewMode == .timeline {
-            groups = splitByAssignment(groups).filter(matchesAssignmentFilter)
+            groups = nearbyApplicationGroups(splitByAssignment(groups)).filter(matchesAssignmentFilter)
         }
         switch sortMode {
         case .time: return groups.sorted { $0.startedAt > $1.startedAt }
@@ -491,6 +491,37 @@ struct ActivityDetailView: View {
             }
             return result
         }
+    }
+
+    private func nearbyApplicationGroups(_ groups: [ActivityGroup]) -> [ActivityGroup] {
+        let assignedIDs = monitor.activityStore.assignedSegmentIDs
+        var result: [ActivityGroup] = []
+        for group in groups.sorted(by: { $0.startedAt < $1.startedAt }) {
+            let assigned = isAssigned(group)
+            let key = group.segments.first?.bundleIdentifier ?? group.applicationName
+            if let index = result.indices.reversed().first(where: {
+                let candidateKey = result[$0].segments.first?.bundleIdentifier ?? result[$0].applicationName
+                return candidateKey == key
+                    && result[$0].segments.allSatisfy { assignedIDs.contains($0.id) } == assigned
+                    && group.startedAt.timeIntervalSince(result[$0].endedAt) <= 5 * 60
+            }) {
+                result[index].segments.append(contentsOf: group.segments)
+            } else {
+                result.append(ActivityGroup(
+                    id: group.id,
+                    segments: group.segments,
+                    displayTitle: group.applicationName
+                ))
+            }
+        }
+        return result
+    }
+
+    private func statusColor(for group: ActivityGroup) -> Color {
+        if (viewMode == .timeline || viewMode == .grouped) && isAssigned(group) {
+            return .white
+        }
+        return group.isIdle ? .gray : .green
     }
 
     private var selectedPendingGroups: [ActivityGroup] {
