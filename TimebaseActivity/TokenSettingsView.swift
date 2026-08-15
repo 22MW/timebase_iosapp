@@ -3,13 +3,17 @@ import SwiftUI
 
 struct TokenSettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var serverURL = ""
     @State private var token = ""
     @State private var statusMessage: String?
     @State private var isSuccess = false
     @State private var isWorking = false
 
     private let service = "Timebase Activity API"
-    private let account = "time.22mw.online"
+    private var account: String { URL(string: normalizedServerURL)?.host ?? normalizedServerURL }
+    private var normalizedServerURL: String {
+        serverURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -19,9 +23,11 @@ struct TokenSettingsView: View {
                 Button("Cerrar") { dismiss() }
             }
 
-            Text("Pega el token API de Timebase. Se guardará únicamente en el Llavero de este Mac.")
+            Text("Configura el servidor y pega el token API. El token se guardará únicamente en el Llavero de este Mac.")
                 .foregroundStyle(.secondary)
 
+            TextField("URL de Timebase", text: $serverURL)
+                .textFieldStyle(.roundedBorder)
             SecureField("Token API", text: $token)
                 .textFieldStyle(.roundedBorder)
 
@@ -36,7 +42,7 @@ struct TokenSettingsView: View {
                     saveAndTest()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isWorking)
+                .disabled(normalizedServerURL.isEmpty || token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isWorking)
             }
         }
         .padding(24)
@@ -45,12 +51,21 @@ struct TokenSettingsView: View {
 
     private func saveAndTest() {
         let value = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else { return }
+        guard !value.isEmpty,
+              let url = URL(string: normalizedServerURL),
+              let scheme = url.scheme?.lowercased(),
+              ["https", "http"].contains(scheme),
+              url.host != nil else {
+            isSuccess = false
+            statusMessage = "Introduce una URL válida, por ejemplo https://time.ejemplo.com."
+            return
+        }
         isWorking = true
         statusMessage = nil
 
         do {
             try saveToKeychain(value)
+            TimebaseConfiguration.baseURL = normalizedServerURL
         } catch {
             isWorking = false
             isSuccess = false

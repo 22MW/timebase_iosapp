@@ -1,6 +1,16 @@
 import Foundation
 import Security
 
+enum TimebaseConfiguration {
+    static let defaultBaseURL = "https://time.22mw.online"
+    private static let baseURLKey = "timebaseBaseURL"
+
+    static var baseURL: String {
+        get { UserDefaults.standard.string(forKey: baseURLKey) ?? defaultBaseURL }
+        set { UserDefaults.standard.set(newValue, forKey: baseURLKey) }
+    }
+}
+
 struct TimebaseProject: Identifiable, Equatable {
     let id: String
     let name: String
@@ -54,10 +64,11 @@ enum TimebaseAPIError: LocalizedError {
 }
 
 struct TimebaseAPIClient {
-    private let baseURL = "https://time.22mw.online"
+    private var baseURL: String { TimebaseConfiguration.baseURL }
     private let keychainService = "Timebase Activity API"
     private let legacyKeychainService = "Timebase macOS API"
-    private let keychainAccount = "time.22mw.online"
+    private var keychainAccount: String { URL(string: baseURL)?.host ?? baseURL }
+    private let legacyKeychainAccount = "time.22mw.online"
 
     func projects() async throws -> [TimebaseProject] {
         guard let url = URL(string: "\(baseURL)/api/raycast/projects") else {
@@ -131,20 +142,20 @@ struct TimebaseAPIClient {
         if let value = keychainToken(service: keychainService) {
             return value
         }
-        if let value = keychainToken(service: legacyKeychainService) {
+        if let value = keychainToken(service: legacyKeychainService, account: legacyKeychainAccount) {
             return value
         }
-        if let value = tokenUsingSecurityTool(service: legacyKeychainService) {
+        if let value = tokenUsingSecurityTool(service: legacyKeychainService, account: legacyKeychainAccount) {
             return value
         }
         throw TimebaseAPIError.missingToken
     }
 
-    private func keychainToken(service: String) -> String? {
+    private func keychainToken(service: String, account: String? = nil) -> String? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
-            kSecAttrAccount: keychainAccount,
+            kSecAttrAccount: account ?? keychainAccount,
             kSecReturnData: true,
             kSecMatchLimit: kSecMatchLimitOne,
             kSecUseAuthenticationUI: kSecUseAuthenticationUIAllow,
@@ -159,13 +170,13 @@ struct TimebaseAPIClient {
         return value
     }
 
-    private func tokenUsingSecurityTool(service: String) -> String? {
+    private func tokenUsingSecurityTool(service: String, account: String) -> String? {
         let process = Process()
         let output = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
         process.arguments = [
             "find-generic-password", "-w",
-            "-a", keychainAccount,
+            "-a", account,
             "-s", service
         ]
         process.standardOutput = output
