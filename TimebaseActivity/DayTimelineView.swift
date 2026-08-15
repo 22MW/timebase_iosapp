@@ -95,7 +95,7 @@ struct DayTimelineView: View {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(color.opacity(item.block.assigned ? 0.3 : 0.55))
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.9)))
-                    .frame(width: 18, height: item.height)
+                    .frame(width: 8, height: item.height)
             }
             .buttonStyle(.plain)
             .disabled(item.block.assigned)
@@ -150,7 +150,13 @@ struct DayTimelineView: View {
                             .foregroundStyle(block.assigned ? .white : (selectedSegmentIDs.contains(segment.id) ? .blue : .green))
                     }.buttonStyle(.plain).disabled(block.assigned)
                     Text(time(segment.startedAt)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                    Text(segment.tabTitle ?? segment.windowTitle ?? "Sin título").font(.caption).lineLimit(2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(segment.tabTitle ?? segment.windowTitle ?? "Sin título")
+                            .font(.caption).lineLimit(2)
+                        if let url = segment.url?.absoluteString {
+                            Text(url).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                    }
                     Spacer()
                     Text(duration(segment.duration)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
@@ -173,29 +179,24 @@ struct DayTimelineView: View {
         let assignedIDs = activityStore.assignedSegmentIDs
         return segments.reduce(into: [Block]()) { result, segment in
             let assigned = assignedIDs.contains(segment.id)
-            if let last = result.indices.last,
-               result[last].assigned == assigned,
-               sameContinuousActivity(result[last].segments.last, segment),
-               segment.startedAt.timeIntervalSince(result[last].end) <= 5 {
-                result[last].segments.append(segment)
+            if let matching = result.indices.reversed().first(where: {
+                result[$0].assigned == assigned
+                    && result[$0].segments.last?.bundleIdentifier == segment.bundleIdentifier
+                    && segment.startedAt.timeIntervalSince(result[$0].end) <= 5 * 60
+            }) {
+                result[matching].segments.append(segment)
             } else {
                 result.append(Block(id: segment.id, segments: [segment], assigned: assigned))
             }
         }
-    }
-
-    private func sameContinuousActivity(_ previous: ActivitySegment?, _ next: ActivitySegment) -> Bool {
-        guard let previous else { return false }
-        return previous.bundleIdentifier == next.bundleIdentifier
-            && previous.tabTitle == next.tabTitle
-            && previous.windowTitle == next.windowTitle
+        .sorted { $0.start < $1.start }
     }
 
     private var positionedBlocks: [PositionedBlock] {
         var laneEnds: [CGFloat] = []
         return blocks.map { block in
             let y = yPosition(block.start)
-            let naturalHeight = CGFloat(max(1, block.end.timeIntervalSince(block.start))) / 3600 * CGFloat(pointsPerHour)
+            let naturalHeight = CGFloat(max(1, block.duration)) / 3600 * CGFloat(pointsPerHour)
             let height = max(18, naturalHeight)
             let lane = laneEnds.firstIndex(where: { $0 + 5 <= y }) ?? laneEnds.count
             if lane == laneEnds.count { laneEnds.append(y + height) } else { laneEnds[lane] = y + height }
