@@ -117,7 +117,18 @@ struct DayTimelineView: View {
 
     private func details(_ block: Block) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(block.app).font(.headline)
+            HStack {
+                Text(block.app).font(.headline)
+                Spacer()
+                if !block.assigned {
+                    Button(allSelected(block) ? "Quitar todas" : "Seleccionar todas") {
+                        toggle(block.ids)
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else {
+                    Label("Asignado", systemImage: "lock.fill").foregroundStyle(.secondary)
+                }
+            }
             Text("\(time(block.start))–\(time(block.end)) · \(duration(block.duration))")
                 .foregroundStyle(.secondary)
             if let project = assignment(block) {
@@ -126,6 +137,14 @@ struct DayTimelineView: View {
             Divider()
             ForEach(block.segments.prefix(12)) { segment in
                 HStack(alignment: .top) {
+                    Button {
+                        toggle([segment.id])
+                    } label: {
+                        Image(systemName: block.assigned ? "lock.fill" : (selectedSegmentIDs.contains(segment.id) ? "checkmark.circle.fill" : "circle"))
+                            .foregroundStyle(block.assigned ? .white : (selectedSegmentIDs.contains(segment.id) ? .blue : .green))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(block.assigned)
                     Text(time(segment.startedAt)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     Text(segment.tabTitle ?? segment.windowTitle ?? "Sin título").font(.caption).lineLimit(2)
                     Spacer()
@@ -153,15 +172,17 @@ struct DayTimelineView: View {
         let assignedIDs = activityStore.assignedSegmentIDs
         return segments.reduce(into: [Block]()) { result, segment in
             let assigned = assignedIDs.contains(segment.id)
-            if let index = result.indices.last,
-               result[index].segments.last?.bundleIdentifier == segment.bundleIdentifier,
-               result[index].assigned == assigned,
-               segment.startedAt.timeIntervalSince(result[index].end) <= 3 {
+            if let index = result.indices.reversed().first(where: {
+                result[$0].segments.last?.bundleIdentifier == segment.bundleIdentifier
+                    && result[$0].assigned == assigned
+                    && segment.startedAt.timeIntervalSince(result[$0].end) <= 5 * 60
+            }) {
                 result[index].segments.append(segment)
             } else {
                 result.append(Block(id: segment.id, segments: [segment], assigned: assigned))
             }
         }
+        .sorted { $0.start < $1.start }
     }
 
     private var hours: [Int] {
@@ -179,6 +200,19 @@ struct DayTimelineView: View {
     }
 
     private func time(_ date: Date) -> String { date.formatted(date: .omitted, time: .shortened) }
+    private func allSelected(_ block: Block) -> Bool {
+        !block.ids.isEmpty && block.ids.allSatisfy(selectedSegmentIDs.contains)
+    }
+
+    private func toggle(_ ids: [UUID]) {
+        let available = ids.filter { !activityStore.assignedSegmentIDs.contains($0) }
+        if !available.isEmpty && available.allSatisfy(selectedSegmentIDs.contains) {
+            selectedSegmentIDs.subtract(available)
+        } else {
+            selectedSegmentIDs.formUnion(available)
+        }
+    }
+
     private func duration(_ interval: TimeInterval) -> String {
         let seconds = Int(interval.rounded(.down)), hours = seconds / 3600, minutes = seconds % 3600 / 60
         if hours > 0 { return "\(hours) h \(minutes) min" }
