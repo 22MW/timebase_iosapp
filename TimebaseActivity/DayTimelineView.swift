@@ -1,24 +1,30 @@
 import SwiftUI
 
 struct DayTimelineView: View {
-    private struct TimelineBlock: Identifiable {
+    private struct Block: Identifiable {
         let id: UUID
         var segments: [ActivitySegment]
-        let isAssigned: Bool
-
-        var applicationName: String { segments.first?.applicationName ?? "Aplicación" }
-        var startedAt: Date { segments.first?.startedAt ?? .distantPast }
-        var endedAt: Date { segments.last?.endedAt ?? startedAt }
+        let assigned: Bool
+        var app: String { segments.first?.applicationName ?? "Aplicación" }
+        var start: Date { segments.first?.startedAt ?? .distantPast }
+        var end: Date { segments.last?.endedAt ?? start }
         var duration: TimeInterval { segments.reduce(0) { $0 + $1.duration } }
-        var segmentIDs: [UUID] { segments.map(\.id) }
+        var ids: [UUID] { segments.map(\.id) }
+    }
+
+    private struct Placement: Identifiable {
+        let block: Block
+        let x: CGFloat
+        let width: CGFloat
+        let lane: Int
+        var id: UUID { block.id }
     }
 
     @ObservedObject var activityStore: ActivityStore
     let date: Date
     @Binding var selectedSegmentIDs: Set<UUID>
-
-    private let pointsPerHour: CGFloat = 92
-    private let labelWidth: CGFloat = 58
+    @State private var hoveredID: UUID?
+    @State private var cardWidth = 150.0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -31,24 +37,21 @@ struct DayTimelineView: View {
                 Spacer()
                 legend
             }
+            HStack(spacing: 9) {
+                Image(systemName: "rectangle.compress.vertical")
+                Slider(value: $cardWidth, in: 90...260, step: 10).frame(width: 180)
+                Image(systemName: "rectangle.expand.vertical")
+                Text("Tamaño").font(.caption).foregroundStyle(.secondary)
+            }.frame(maxWidth: .infinity, alignment: .trailing)
 
             if blocks.isEmpty {
-                ContentUnavailableView(
-                    "No hay actividad este día",
-                    systemImage: "calendar",
-                    description: Text("Selecciona otro día para ver su actividad.")
-                )
+                ContentUnavailableView("No hay actividad este día", systemImage: "calendar")
             } else {
                 ScrollView(.vertical) {
-                    ZStack(alignment: .topLeading) {
-                        hourGrid
-                        ForEach(blocks) { block in
-                            timelineBlock(block)
-                        }
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(hours, id: \.self) { hour in hourRow(hour) }
                     }
-                    .frame(height: CGFloat(endHour - startHour) * pointsPerHour)
-                }
-                .frame(minHeight: 380, maxHeight: 620)
+                }.frame(minHeight: 380, maxHeight: 650)
             }
         }
     }
@@ -58,91 +61,104 @@ struct DayTimelineView: View {
             Label("Pendiente", systemImage: "circle.fill").foregroundStyle(.green)
             Label("Seleccionado", systemImage: "circle.fill").foregroundStyle(.blue)
             Label("Asignado", systemImage: "circle.fill").foregroundStyle(.white)
-        }
-        .font(.caption)
+        }.font(.caption)
     }
 
-    private var hourGrid: some View {
-        ForEach(startHour...endHour, id: \.self) { hour in
-            let y = CGFloat(hour - startHour) * pointsPerHour
-            HStack(spacing: 10) {
-                Text(String(format: "%02d:00", hour))
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: labelWidth, alignment: .trailing)
-                Divider()
-                    .frame(height: 1)
-                    .overlay(.secondary.opacity(0.3))
+    private func hourRow(_ hour: Int) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Text(String(format: "%02d:00", hour))
+                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                .frame(width: 50, alignment: .trailing).padding(.top, 12)
+            GeometryReader { proxy in
+                let placements = placements(for: hour, availableWidth: proxy.size.width)
+                let laneCount = (placements.map(\.lane).max() ?? 0) + 1
+                ZStack(alignment: .topLeading) {
+                    Divider().offset(y: 5)
+                    ForEach(placements) { placement in
+                        card(placement.block)
+                            .frame(width: placement.width)
+                            .offset(x: placement.x, y: CGFloat(placement.lane) * 74 + 14)
+                    }
+                }
+                .frame(height: CGFloat(laneCount) * 74 + 20)
             }
-            .offset(y: y)
+            .frame(height: hourHeight(hour))
+        }.padding(.bottom, 16)
+    }
+
+    private func placements(for hour: Int, availableWidth: CGFloat) -> [Placement] {
+        let hourBlocks = blocks.filter { Calendar.current.component(.hour, from: $0.start) == hour }
+        var laneEnds: [CGFloat] = []
+        return hourBlocks.map { block in
+            let minute = Calendar.current.component(.minute, from: block.start)
+            let second = Calendar.current.component(.second, from: block.start)
+            let x = (CGFloat(minute) + CGFloat(second) / 60) / 60 * availableWidth
+            let naturalWidth = CGFloat(max(1, block.end.timeIntervalSince(block.start))) / 3600 * availableWidth
+            let width = min(max(CGFloat(cardWidth), naturalWidth), max(CGFloat(cardWidth), availableWidth - x))
+            let lane = laneEnds.firstIndex(where: { $0 + 8 <= x }) ?? laneEnds.count
+            if lane == laneEnds.count { laneEnds.append(x + width) } else { laneEnds[lane] = x + width }
+            return Placement(block: block, x: x, width: width, lane: lane)
         }
     }
 
-    private func timelineBlock(_ block: TimelineBlock) -> some View {
-        let selected = !block.isAssigned && block.segmentIDs.allSatisfy(selectedSegmentIDs.contains)
-        let color: Color = block.isAssigned ? .white : (selected ? .blue : .green)
-        let top = yPosition(for: block.startedAt)
-        let actualHeight = CGFloat(max(1, block.endedAt.timeIntervalSince(block.startedAt))) / 3600 * pointsPerHour
-        let height = max(30, actualHeight)
+    private func hourHeight(_ hour: Int) -> CGFloat {
+        // The width used here only determines the number of visual rows; GeometryReader
+        // recalculates exact positions using its real width.
+        let estimate = placements(for: hour, availableWidth: 600)
+        return CGFloat((estimate.map(\.lane).max() ?? 0) + 1) * 74 + 20
+    }
 
+    private func card(_ block: Block) -> some View {
+        let selected = !block.assigned && block.ids.allSatisfy(selectedSegmentIDs.contains)
+        let color: Color = block.assigned ? .white : (selected ? .blue : .green)
         return Button {
-            guard !block.isAssigned else { return }
-            if selected {
-                selectedSegmentIDs.subtract(block.segmentIDs)
-            } else {
-                selectedSegmentIDs.formUnion(block.segmentIDs)
-            }
+            guard !block.assigned else { return }
+            if selected { selectedSegmentIDs.subtract(block.ids) }
+            else { selectedSegmentIDs.formUnion(block.ids) }
         } label: {
             HStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 4)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(block.applicationName).font(.caption.bold()).lineLimit(1)
-                    Text("\(block.startedAt.formatted(date: .omitted, time: .shortened))–\(block.endedAt.formatted(date: .omitted, time: .shortened)) · \(durationText(block.duration))")
-                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(block.app).font(.caption.bold()).lineLimit(1)
+                    Text("\(time(block.start))–\(time(block.end))")
+                        .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                    Text(duration(block.duration)).font(.caption2).foregroundStyle(.secondary)
                 }
-                Spacer()
-                Image(systemName: block.isAssigned ? "lock.fill" : (selected ? "checkmark.circle.fill" : "circle"))
+                Spacer(minLength: 4)
+                Image(systemName: block.assigned ? "lock.fill" : (selected ? "checkmark.circle.fill" : "circle"))
                     .foregroundStyle(color)
             }
-            .padding(.horizontal, 10)
-            .frame(height: height)
-            .background(color.opacity(block.isAssigned ? 0.12 : 0.16), in: RoundedRectangle(cornerRadius: 8))
+            .padding(10).frame(minHeight: 66)
+            .background(color.opacity(block.assigned ? 0.1 : 0.15), in: RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(color.opacity(0.65)))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .disabled(block.isAssigned)
-        .popover(isPresented: hoverBinding(for: block.id), arrowEdge: .leading) {
-            blockDetails(block).padding(16).frame(width: 380)
+        .buttonStyle(.plain).disabled(block.assigned)
+        .popover(isPresented: hoverBinding(block.id), arrowEdge: .leading) {
+            details(block).padding(16).frame(width: 390)
         }
-        .onHover { hovering in hoveredBlockID = hovering ? block.id : (hoveredBlockID == block.id ? nil : hoveredBlockID) }
-        .offset(x: labelWidth + 76, y: top)
-        .padding(.trailing, labelWidth + 92)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .onHover { over in hoveredID = over ? block.id : (hoveredID == block.id ? nil : hoveredID) }
     }
 
-    @State private var hoveredBlockID: UUID?
-
-    private func hoverBinding(for id: UUID) -> Binding<Bool> {
-        Binding(get: { hoveredBlockID == id }, set: { if !$0 && hoveredBlockID == id { hoveredBlockID = nil } })
+    private func hoverBinding(_ id: UUID) -> Binding<Bool> {
+        Binding(get: { hoveredID == id }, set: { if !$0 && hoveredID == id { hoveredID = nil } })
     }
 
-    private func blockDetails(_ block: TimelineBlock) -> some View {
+    private func details(_ block: Block) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(block.applicationName).font(.headline)
-            Text("\(block.startedAt.formatted(date: .omitted, time: .shortened))–\(block.endedAt.formatted(date: .omitted, time: .shortened)) · \(durationText(block.duration))")
+            Text(block.app).font(.headline)
+            Text("\(time(block.start))–\(time(block.end)) · \(duration(block.duration))")
                 .foregroundStyle(.secondary)
-            if let assignment = assignmentText(for: block) {
-                Label(assignment, systemImage: "folder.fill").foregroundStyle(.secondary)
+            if let project = assignment(block) {
+                Label(project, systemImage: "folder.fill").foregroundStyle(.secondary)
             }
             Divider()
             ForEach(block.segments.prefix(12)) { segment in
                 HStack(alignment: .top) {
-                    Text(segment.startedAt, style: .time).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                    Text(segment.tabTitle ?? segment.windowTitle ?? "Sin título")
-                        .font(.caption).lineLimit(2)
+                    Text(time(segment.startedAt)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    Text(segment.tabTitle ?? segment.windowTitle ?? "Sin título").font(.caption).lineLimit(2)
                     Spacer()
-                    Text(durationText(segment.duration)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    Text(duration(segment.duration)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
             }
             if block.segments.count > 12 {
@@ -151,7 +167,7 @@ struct DayTimelineView: View {
         }
     }
 
-    private var daySegments: [ActivitySegment] {
+    private var segments: [ActivitySegment] {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: date)
         let end = calendar.date(byAdding: .day, value: 1, to: start) ?? date
@@ -162,55 +178,40 @@ struct DayTimelineView: View {
         }.sorted { $0.startedAt < $1.startedAt }
     }
 
-    private var blocks: [TimelineBlock] {
+    private var blocks: [Block] {
         let assignedIDs = activityStore.assignedSegmentIDs
-        return daySegments.reduce(into: [TimelineBlock]()) { result, segment in
+        return segments.reduce(into: [Block]()) { result, segment in
             let assigned = assignedIDs.contains(segment.id)
             if let index = result.indices.last,
                result[index].segments.last?.bundleIdentifier == segment.bundleIdentifier,
-               result[index].isAssigned == assigned,
-               segment.startedAt.timeIntervalSince(result[index].endedAt) <= 3 {
+               result[index].assigned == assigned,
+               segment.startedAt.timeIntervalSince(result[index].end) <= 3 {
                 result[index].segments.append(segment)
             } else {
-                result.append(TimelineBlock(id: segment.id, segments: [segment], isAssigned: assigned))
+                result.append(Block(id: segment.id, segments: [segment], assigned: assigned))
             }
         }
     }
 
-    private var startHour: Int {
-        max(0, (blocks.map { Calendar.current.component(.hour, from: $0.startedAt) }.min() ?? 0) - 1)
+    private var hours: [Int] {
+        Array(Set(blocks.map { Calendar.current.component(.hour, from: $0.start) })).sorted()
     }
 
-    private var endHour: Int {
-        min(24, (blocks.map { Calendar.current.component(.hour, from: $0.endedAt) }.max() ?? 23) + 2)
-    }
-
-    private func yPosition(for date: Date) -> CGFloat {
-        let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
-        let hour = CGFloat((components.hour ?? 0) - startHour)
-        let fraction = CGFloat(components.minute ?? 0) / 60 + CGFloat(components.second ?? 0) / 3600
-        return (hour + fraction) * pointsPerHour
-    }
-
-    private func assignmentText(for block: TimelineBlock) -> String? {
-        let ids = Set(block.segmentIDs)
+    private func assignment(_ block: Block) -> String? {
+        let ids = Set(block.ids)
         let labels = activityStore.exports.filter { !ids.isDisjoint(with: Set($0.segmentIDs)) }.map {
             if let client = $0.clientName, !client.isEmpty { return "\(client) · \($0.projectName)" }
             return $0.projectName
         }
-        return Array(Set(labels)).sorted().joined(separator: ", ").nilIfEmpty
+        let text = Array(Set(labels)).sorted().joined(separator: ", ")
+        return text.isEmpty ? nil : text
     }
 
-    private func durationText(_ duration: TimeInterval) -> String {
-        let seconds = Int(duration.rounded(.down))
-        let hours = seconds / 3600
-        let minutes = (seconds % 3600) / 60
+    private func time(_ date: Date) -> String { date.formatted(date: .omitted, time: .shortened) }
+    private func duration(_ interval: TimeInterval) -> String {
+        let seconds = Int(interval.rounded(.down)), hours = seconds / 3600, minutes = seconds % 3600 / 60
         if hours > 0 { return "\(hours) h \(minutes) min" }
         if minutes > 0 { return "\(minutes) min" }
         return "\(seconds) s"
     }
-}
-
-private extension String {
-    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
