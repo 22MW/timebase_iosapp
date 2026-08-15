@@ -42,6 +42,7 @@ struct ActivityDetailView: View {
     @State private var showsProjectPicker = false
     @State private var showsEntryReview = false
     @State private var showsBlacklist = false
+    @State private var showsSettings = false
     @State private var period = "Hoy"
     @State private var rangeStart = Calendar.current.startOfDay(for: Date())
     @State private var rangeEnd = Calendar.current.startOfDay(for: Date())
@@ -94,6 +95,9 @@ struct ActivityDetailView: View {
         .sheet(isPresented: $showsBlacklist) {
             BlacklistView(activityStore: monitor.activityStore)
         }
+        .sheet(isPresented: $showsSettings) {
+            TokenSettingsView()
+        }
     }
 
     private var header: some View {
@@ -111,6 +115,9 @@ struct ActivityDetailView: View {
             }
             Button("Lista negra") {
                 showsBlacklist = true
+            }
+            Button("Ajustes") {
+                showsSettings = true
             }
         }
     }

@@ -55,7 +55,8 @@ enum TimebaseAPIError: LocalizedError {
 
 struct TimebaseAPIClient {
     private let baseURL = "https://time.22mw.online"
-    private let keychainService = "Timebase macOS API"
+    private let keychainService = "Timebase Activity API"
+    private let legacyKeychainService = "Timebase macOS API"
     private let keychainAccount = "time.22mw.online"
 
     func projects() async throws -> [TimebaseProject] {
@@ -127,9 +128,22 @@ struct TimebaseAPIClient {
     }
 
     private func token() throws -> String {
+        if let value = keychainToken(service: keychainService) {
+            return value
+        }
+        if let value = keychainToken(service: legacyKeychainService) {
+            return value
+        }
+        if let value = tokenUsingSecurityTool(service: legacyKeychainService) {
+            return value
+        }
+        throw TimebaseAPIError.missingToken
+    }
+
+    private func keychainToken(service: String) -> String? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
-            kSecAttrService: keychainService,
+            kSecAttrService: service,
             kSecAttrAccount: keychainAccount,
             kSecReturnData: true,
             kSecMatchLimit: kSecMatchLimitOne,
@@ -138,30 +152,21 @@ struct TimebaseAPIClient {
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-        if status == errSecSuccess,
+        guard status == errSecSuccess,
            let data = item as? Data,
            let value = String(data: data, encoding: .utf8),
-           !value.isEmpty {
-            return value
-        }
-
-        if let value = tokenUsingSecurityTool() {
-            return value
-        }
-        if status == errSecItemNotFound {
-            throw TimebaseAPIError.missingToken
-        }
-        throw TimebaseAPIError.keychain(status)
+           !value.isEmpty else { return nil }
+        return value
     }
 
-    private func tokenUsingSecurityTool() -> String? {
+    private func tokenUsingSecurityTool(service: String) -> String? {
         let process = Process()
         let output = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
         process.arguments = [
             "find-generic-password", "-w",
             "-a", keychainAccount,
-            "-s", keychainService
+            "-s", service
         ]
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
