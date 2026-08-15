@@ -518,7 +518,7 @@ struct ActivityDetailView: View {
     }
 
     private func statusColor(for group: ActivityGroup) -> Color {
-        if (viewMode == .timeline || viewMode == .grouped) && isAssigned(group) {
+        if isAssigned(group) {
             return .white
         }
         return group.isIdle ? .gray : .green
