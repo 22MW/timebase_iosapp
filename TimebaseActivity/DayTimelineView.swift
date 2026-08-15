@@ -22,6 +22,11 @@ struct DayTimelineView: View {
 
     @ObservedObject var activityStore: ActivityStore
     let date: Date
+    let searchText: String
+    let showsWebsites: Bool
+    let showsApplications: Bool
+    let idleFilter: Bool?
+    let hidesShortActivities: Bool
     @Binding var selectedSegmentIDs: Set<UUID>
     @State private var detailBlockID: UUID?
     @State private var zoom = 1.0
@@ -194,6 +199,10 @@ struct DayTimelineView: View {
     }
 
     private var blocks: [Block] {
+        unfilteredBlocks.filter(matchesFilters)
+    }
+
+    private var unfilteredBlocks: [Block] {
         let assignedIDs = activityStore.assignedSegmentIDs
         return segments.reduce(into: [Block]()) { result, segment in
             let assigned = assignedIDs.contains(segment.id)
@@ -208,6 +217,21 @@ struct DayTimelineView: View {
             }
         }
         .sorted { $0.start < $1.start }
+    }
+
+    private func matchesFilters(_ block: Block) -> Bool {
+        if hidesShortActivities && block.duration < 10 { return false }
+        let isWebsite = block.segments.contains { $0.domain != nil }
+        if isWebsite && !showsWebsites { return false }
+        if !isWebsite && !showsApplications { return false }
+        if let idleFilter, !block.segments.contains(where: { $0.isIdle == idleFilter }) { return false }
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return true }
+        return block.segments.contains { segment in
+            [segment.applicationName, segment.windowTitle, segment.tabTitle, segment.domain,
+             segment.url?.absoluteString].compactMap { $0 }
+                .contains { $0.localizedCaseInsensitiveContains(query) }
+        }
     }
 
     private var positionedBlocks: [PositionedBlock] {

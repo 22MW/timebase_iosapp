@@ -207,6 +207,11 @@ struct ActivityDetailView: View {
                 DayTimelineView(
                     activityStore: monitor.activityStore,
                     date: rangeStart,
+                    searchText: searchText,
+                    showsWebsites: activityKind != .applications,
+                    showsApplications: activityKind != .websites,
+                    idleFilter: activityStatus == .all ? nil : activityStatus == .idle,
+                    hidesShortActivities: hidesShortActivities,
                     selectedSegmentIDs: $selectedSegmentIDs
                 )
             } else if viewMode == .selection {
@@ -526,7 +531,7 @@ struct ActivityDetailView: View {
 
     private var selectedPendingGroups: [ActivityGroup] {
         let assignedIDs = monitor.activityStore.assignedSegmentIDs
-        return sortedGroups(dateGroups.filter(matchesFilters).compactMap { group in
+        return sortedGroups(dateGroups.compactMap { group in
             let segments = group.segments.filter {
                 selectedSegmentIDs.contains($0.id) && !assignedIDs.contains($0.id)
             }
@@ -606,12 +611,12 @@ struct ActivityDetailView: View {
 
     private var summaryAssignedDuration: TimeInterval {
         let assignedIDs = monitor.activityStore.assignedSegmentIDs
-        return rawDateSegments.filter { assignedIDs.contains($0.id) }.reduce(0) { $0 + $1.duration }
+        return summaryFilteredSegments.filter { assignedIDs.contains($0.id) }.reduce(0) { $0 + $1.duration }
     }
 
     private var summaryUnassignedDuration: TimeInterval {
         let assignedIDs = monitor.activityStore.assignedSegmentIDs
-        return rawDateSegments.filter {
+        return summaryFilteredSegments.filter {
             !assignedIDs.contains($0.id)
                 && !monitor.activityStore.blacklistedBundleIDs.contains($0.bundleIdentifier ?? "")
         }.reduce(0) { $0 + $1.duration }
@@ -619,7 +624,7 @@ struct ActivityDetailView: View {
 
     private var summaryExcludedDuration: TimeInterval {
         let assignedIDs = monitor.activityStore.assignedSegmentIDs
-        return rawDateSegments.filter {
+        return summaryFilteredSegments.filter {
             !assignedIDs.contains($0.id)
                 && monitor.activityStore.blacklistedBundleIDs.contains($0.bundleIdentifier ?? "")
         }.reduce(0) { $0 + $1.duration }
@@ -632,7 +637,7 @@ struct ActivityDetailView: View {
     private var summaryRows: [SummaryRow] {
         let assignedIDs = monitor.activityStore.assignedSegmentIDs
         var rows: [String: SummaryRow] = [:]
-        for segment in rawDateSegments
+        for segment in summaryFilteredSegments
         where !monitor.activityStore.blacklistedBundleIDs.contains(segment.bundleIdentifier ?? "") {
             let name = segment.domain ?? segment.applicationName
             var row = rows[name] ?? SummaryRow(
@@ -651,6 +656,12 @@ struct ActivityDetailView: View {
             rows[name] = row
         }
         return rows.values.sorted { $0.total > $1.total }
+    }
+
+    private var summaryFilteredSegments: [ActivitySegment] {
+        rawDateSegments.filter { segment in
+            matchesFilters(ActivityGroup(id: segment.id, segments: [segment]))
+        }
     }
 
     private func assignmentText(for group: ActivityGroup) -> String? {
