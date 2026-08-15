@@ -27,7 +27,7 @@ struct DayTimelineView: View {
     @State private var zoom = 1.0
 
     private let hourLabelWidth: CGFloat = 72
-    private let laneWidth: CGFloat = 190
+    private let laneWidth: CGFloat = 215
     private var pointsPerHour: CGFloat { 120 * CGFloat(zoom) }
     private var titleSize: CGFloat { min(14, 11 + CGFloat(max(0, zoom - 1))) }
 
@@ -216,8 +216,13 @@ struct DayTimelineView: View {
             let y = yPosition(block.start)
             let naturalHeight = CGFloat(max(1, block.duration)) / 3600 * pointsPerHour
             let height = max(18, naturalHeight)
-            let lane = laneEnds.firstIndex(where: { $0 + 5 <= y }) ?? laneEnds.count
-            if lane == laneEnds.count { laneEnds.append(y + height) } else { laneEnds[lane] = y + height }
+            let reservedHeight = max(height, 44) + 8
+            let lane = laneEnds.firstIndex(where: { $0 <= y }) ?? laneEnds.count
+            if lane == laneEnds.count {
+                laneEnds.append(y + reservedHeight)
+            } else {
+                laneEnds[lane] = y + reservedHeight
+            }
             return PositionedBlock(block: block, lane: lane, y: y, height: height)
         }
     }
