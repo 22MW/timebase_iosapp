@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ActivityDetailView: View {
     private enum ViewMode: String, CaseIterable, Identifiable {
-        case timeline = "Cronología", day = "Día", grouped = "Agrupado", selection = "Selección", summary = "Resumen"
+        case day = "Día", timeline = "Cronología", grouped = "Agrupado", selection = "Selección", summary = "Resumen"
         var id: Self { self }
     }
     private enum ActivityKind: String, CaseIterable, Identifiable {
@@ -365,7 +365,7 @@ struct ActivityDetailView: View {
                     Label("Asignado", systemImage: "circle.fill")
                         .font(.caption).foregroundStyle(.white)
                 } else if viewMode == .grouped {
-                    Label("Pendiente", systemImage: "circle")
+                    Label("Pendiente", systemImage: "circle.fill")
                         .font(.caption).foregroundStyle(.orange)
                 }
                 Text(group.startedAt, style: .time).monospacedDigit().foregroundStyle(.tertiary)
